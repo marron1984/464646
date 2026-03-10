@@ -1,15 +1,18 @@
-# 乃木坂46メディアスクレイパー
+# 乃木坂46 メディアスクレイパー
 
-乃木坂46（および関連グループ）の画像・動画を自動で収集するPythonツールです。
+乃木坂46（および関連グループ）の画像・動画を自動で収集するツールです。
+**ブラウザ上で完結**するWebUIを搭載し、**推しメンバーを重点的に収集**できます。
 
-## 機能
+## 特徴
 
-- **ブログ画像収集** - 公式ブログから画像を自動ダウンロード（メンバー別フォルダに整理）
-- **YouTube動画ダウンロード** - 公式チャンネルの動画をyt-dlp経由でダウンロード
-- **Webページ画像収集** - 任意のWebページから画像を一括ダウンロード
-- **重複排除** - SHA-256ハッシュによるコンテンツレベルの重複排除
-- **レート制限** - サーバーへの負荷を軽減する自動待機機能
-- **YAML設定** - 柔軟な設定ファイル対応
+- **WebUI** - ブラウザ上で操作完結。インストール後すぐに使える
+- **推し設定** - 推しメンバーを登録すると優先的・大量に収集
+- **推し順位** - ドラッグ&ドロップで推し順を設定。上位ほど優先
+- **リアルタイム進捗** - SSEによる収集状況のライブ表示
+- **ブログ画像** - 公式ブログからメンバー別に画像を自動ダウンロード
+- **YouTube動画** - 推しメンバー名で自動検索＆ダウンロード
+- **重複排除** - SHA-256ハッシュによるコンテンツレベルの重複チェック
+- **レート制限** - サーバー負荷軽減のための自動待機
 
 ## インストール
 
@@ -17,134 +20,85 @@
 pip install -e .
 ```
 
-または依存パッケージのみ:
-
-```bash
-pip install -r requirements.txt
-```
-
-YouTube動画のダウンロードには `yt-dlp` が必要です:
-
-```bash
-pip install yt-dlp
-```
-
 ## 使い方
 
-### 初期設定
-
-設定ファイルのテンプレートを生成:
+### WebUIを起動（推奨）
 
 ```bash
-nogizaka-scraper init
+nogizaka-scraper web
 ```
 
-### ブログ画像の収集
+ブラウザで `http://localhost:5000` を開くと、以下の画面が表示されます：
+
+### 1. 推し設定タブ
+
+- メンバー一覧からクリックで推しを追加
+- ドラッグ&ドロップで推し順位を変更
+- 推しメンバーの最大ページ数を設定（デフォルト: 20ページ）
+- 推し以外のメンバーの収集ON/OFF・ページ数制限
+
+### 2. 収集実行タブ
+
+- **ブログ画像** / **YouTube動画** / **全部まとめて** から選択
+- 推しメンバーが自動で優先対象に設定される
+- リアルタイムで進捗を確認
+
+### 3. 詳細設定タブ
+
+- ダウンロード先ディレクトリ
+- リクエスト間隔
+- YouTube動画品質
+- 既存ファイルスキップ設定
+
+## CLI（コマンドライン）でも使えます
 
 ```bash
-# 全メンバーのブログ画像を収集
-nogizaka-scraper blog
-
-# 特定メンバーのみ
+# ブログ画像を収集
 nogizaka-scraper blog --members 遠藤さくら 賀喜遥香
 
-# ページ数を制限
-nogizaka-scraper blog --max-pages 5
-```
+# YouTube検索
+nogizaka-scraper youtube --search "乃木坂46 MV" --quality 1080p
 
-### YouTube動画のダウンロード
-
-```bash
-# 公式チャンネルから動画をダウンロード
-nogizaka-scraper youtube
-
-# キーワード検索でダウンロード
-nogizaka-scraper youtube --search "乃木坂46 MV"
-
-# 品質を指定
-nogizaka-scraper youtube --quality 1080p --max-results 10
-```
-
-### Webページから画像収集
-
-```bash
-# 指定URLから画像をダウンロード
-nogizaka-scraper images --urls https://example.com/gallery
-```
-
-### 全スクレイパーを一括実行
-
-```bash
+# 全部まとめて
 nogizaka-scraper all
 ```
 
-### 共通オプション
+## 推し設定の仕組み
 
-```bash
-# ダウンロード先を指定
-nogizaka-scraper blog -o ./my_downloads
-
-# 設定ファイルを指定
-nogizaka-scraper blog -c config.yml
-
-# リクエスト間隔を変更（秒）
-nogizaka-scraper blog --delay 3.0
-
-# 詳細ログ出力
-nogizaka-scraper blog -v
-```
-
-## 設定ファイル (YAML)
-
-`nogizaka-scraper init` で生成されるテンプレート:
-
-```yaml
-download_dir: ./downloads
-max_concurrent_downloads: 3
-request_delay: 2.0
-max_retries: 3
-timeout: 30
-skip_existing: true
-
-blog_base_url: https://blog.nogizaka46.com
-blog_member_filter: []
-blog_max_pages: 10
-
-youtube_channel_ids:
-  - UCnSgMmHaG6-wjIxBBHqt7g
-youtube_max_results: 50
-youtube_download_quality: 720p
-```
-
-## 環境変数
-
-| 変数名 | 説明 |
-|--------|------|
-| `YOUTUBE_API_KEY` | YouTube Data API キー |
-| `NOGI_DOWNLOAD_DIR` | ダウンロードディレクトリ |
+| 項目 | 推しメンバー | 推し以外 |
+|------|-------------|---------|
+| 収集ページ数 | 最大20ページ（設定可能） | 最大2ページ（設定可能） |
+| 収集順序 | 最優先 | 推しの後 |
+| YouTube検索 | メンバー名で自動検索 | チャンネル全体のみ |
+| 収集ON/OFF | 常にON | 設定で切替可能 |
 
 ## プロジェクト構造
 
 ```
 nogizaka_scraper/
-├── __init__.py          # パッケージ初期化
-├── __main__.py          # python -m 実行用
-├── cli.py               # CLIインターフェース
-├── config.py            # 設定管理
+├── webapp.py              # Flask Webアプリケーション
+├── members.py             # メンバーデータベース
+├── oshi.py                # 推し管理
+├── cli.py                 # CLIインターフェース
+├── config.py              # 設定管理
+├── templates/index.html   # WebUI HTML
+├── static/
+│   ├── style.css          # スタイル
+│   └── app.js             # フロントエンドJS
 ├── scrapers/
-│   ├── base.py          # スクレイパー基底クラス
-│   ├── blog_scraper.py  # ブログ画像スクレイパー
+│   ├── base.py            # スクレイパー基底クラス
+│   ├── blog_scraper.py    # ブログ画像スクレイパー
 │   ├── youtube_scraper.py # YouTube動画ダウンローダー
 │   └── web_image_scraper.py # Web画像スクレイパー
 └── utils/
-    ├── downloader.py    # ダウンロードマネージャー
-    └── logger.py        # ロガー設定
+    ├── downloader.py      # ダウンロードマネージャー
+    └── logger.py          # ロガー設定
 ```
 
 ## 注意事項
 
 - 本ツールは個人利用目的です。収集したコンテンツの再配布は各権利者の規約に従ってください。
-- サーバーに過度な負荷をかけないよう、`request_delay` を適切に設定してください（デフォルト: 2秒）。
+- サーバーに過度な負荷をかけないよう、リクエスト間隔を適切に設定してください（デフォルト: 2秒）。
 - robots.txt を確認し、スクレイピングが許可されているかご確認ください。
 
 ## ライセンス

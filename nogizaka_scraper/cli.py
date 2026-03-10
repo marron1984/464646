@@ -99,6 +99,15 @@ def create_parser() -> argparse.ArgumentParser:
     # all コマンド
     subparsers.add_parser("all", help="全スクレイパーを実行")
 
+    # web コマンド
+    web_parser = subparsers.add_parser("web", help="WebブラウザUIを起動")
+    web_parser.add_argument(
+        "--host", default="0.0.0.0", help="バインドアドレス",
+    )
+    web_parser.add_argument(
+        "--port", type=int, default=5000, help="ポート番号",
+    )
+
     return parser
 
 
@@ -146,6 +155,14 @@ def cmd_init(config: ScraperConfig, _args: argparse.Namespace) -> None:
     print("お好みに合わせて編集してください。")
 
 
+def cmd_web(_config: ScraperConfig, args: argparse.Namespace) -> None:
+    from nogizaka_scraper.webapp import run_webapp
+
+    print(f"\nWebUI を起動中: http://{args.host}:{args.port}")
+    print("ブラウザで開いてください。Ctrl+C で終了。\n")
+    run_webapp(host=args.host, port=args.port, debug=True)
+
+
 def cmd_all(config: ScraperConfig, _args: argparse.Namespace) -> None:
     from nogizaka_scraper.scrapers.blog_scraper import BlogScraper
     from nogizaka_scraper.scrapers.youtube_scraper import YouTubeScraper
@@ -185,6 +202,14 @@ def main() -> None:
         config.log_level = "DEBUG"
 
     setup_logger(config.log_level)
+
+    # webコマンドは設定不要で先に処理
+    if args.command == "web":
+        from nogizaka_scraper.webapp import run_webapp
+        print(f"\nWebUI を起動中: http://{args.host}:{args.port}")
+        print("ブラウザで開いてください。Ctrl+C で終了。\n")
+        run_webapp(host=args.host, port=args.port, debug=True)
+        return
 
     commands = {
         "blog": cmd_blog,
