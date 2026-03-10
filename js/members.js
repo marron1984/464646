@@ -14,32 +14,32 @@ const MEMBERS = [
   // 乃木坂46
   // ============================================================
   // --- 3期生 ---
-  { name: "久保史緒里", kana: "くぼ しおり", romaji: "kubo_shiori", gen: 3, group: "nogizaka", blogPath: "kuboshiori" },
-  { name: "山下美月", kana: "やました みづき", romaji: "yamashita_mizuki", gen: 3, group: "nogizaka", blogPath: "yamashitamizuki" },
-  { name: "与田祐希", kana: "よだ ゆうき", romaji: "yoda_yuuki", gen: 3, group: "nogizaka", blogPath: "yodayuuki" },
+  { name: "久保史緒里", kana: "くぼ しおり", romaji: "kubo_shiori", gen: 3, group: "nogizaka", ct: 36753 },
+  { name: "山下美月", kana: "やました みづき", romaji: "yamashita_mizuki", gen: 3, group: "nogizaka", ct: 36758 },
+  { name: "与田祐希", kana: "よだ ゆうき", romaji: "yoda_yuuki", gen: 3, group: "nogizaka", ct: 36760 },
   // --- 4期生 ---
-  { name: "遠藤さくら", kana: "えんどう さくら", romaji: "endou_sakura", gen: 4, group: "nogizaka", blogPath: "endousakura" },
-  { name: "賀喜遥香", kana: "かき はるか", romaji: "kaki_haruka", gen: 4, group: "nogizaka", blogPath: "kakiharuka" },
-  { name: "金川紗耶", kana: "かながわ さや", romaji: "kanagawa_saya", gen: 4, group: "nogizaka", blogPath: "kanagawasaya" },
-  { name: "黒見明香", kana: "くろみ はるか", romaji: "kuromi_haruka", gen: 4, group: "nogizaka", blogPath: "kuromiharuka" },
-  { name: "佐藤璃果", kana: "さとう りか", romaji: "satou_rika", gen: 4, group: "nogizaka", blogPath: "satourika" },
-  { name: "清宮レイ", kana: "せいみや れい", romaji: "seimiya_rei", gen: 4, group: "nogizaka", blogPath: "seimiyarei" },
-  { name: "田村真佑", kana: "たむら まゆ", romaji: "tamura_mayu", gen: 4, group: "nogizaka", blogPath: "tamuramayu" },
-  { name: "筒井あやめ", kana: "つつい あやめ", romaji: "tsutsui_ayame", gen: 4, group: "nogizaka", blogPath: "tsutsuiayame" },
-  { name: "早川聖来", kana: "はやかわ せいら", romaji: "hayakawa_seira", gen: 4, group: "nogizaka", blogPath: "hayakawaseira" },
-  { name: "矢久保美緒", kana: "やくぼ みお", romaji: "yakubo_mio", gen: 4, group: "nogizaka", blogPath: "yakubomio" },
+  { name: "遠藤さくら", kana: "えんどう さくら", romaji: "endou_sakura", gen: 4, group: "nogizaka", ct: 48006 },
+  { name: "賀喜遥香", kana: "かき はるか", romaji: "kaki_haruka", gen: 4, group: "nogizaka", ct: 48008 },
+  { name: "金川紗耶", kana: "かながわ さや", romaji: "kanagawa_saya", gen: 4, group: "nogizaka", ct: 48010 },
+  { name: "黒見明香", kana: "くろみ はるか", romaji: "kuromi_haruka", gen: 4, group: "nogizaka", ct: 55383 },
+  { name: "佐藤璃果", kana: "さとう りか", romaji: "satou_rika", gen: 4, group: "nogizaka", ct: 55384 },
+  { name: "清宮レイ", kana: "せいみや れい", romaji: "seimiya_rei", gen: 4, group: "nogizaka", ct: 48014 },
+  { name: "田村真佑", kana: "たむら まゆ", romaji: "tamura_mayu", gen: 4, group: "nogizaka", ct: 48015 },
+  { name: "筒井あやめ", kana: "つつい あやめ", romaji: "tsutsui_ayame", gen: 4, group: "nogizaka", ct: 48017 },
+  { name: "早川聖来", kana: "はやかわ せいら", romaji: "hayakawa_seira", gen: 4, group: "nogizaka", ct: 48018 },
+  { name: "矢久保美緒", kana: "やくぼ みお", romaji: "yakubo_mio", gen: 4, group: "nogizaka", ct: 48019 },
   // --- 5期生 ---
-  { name: "五百城茉央", kana: "いおき まお", romaji: "ioki_mao", gen: 5, group: "nogizaka", blogPath: "iokimao" },
-  { name: "池田瑛紗", kana: "いけだ てれさ", romaji: "ikeda_teresa", gen: 5, group: "nogizaka", blogPath: "ikedateresa" },
-  { name: "一ノ瀬美空", kana: "いちのせ みく", romaji: "ichinose_miku", gen: 5, group: "nogizaka", blogPath: "ichinosemiku" },
-  { name: "井上和", kana: "いのうえ なぎ", romaji: "inoue_nagi", gen: 5, group: "nogizaka", blogPath: "inouenagi" },
-  { name: "岡本姫奈", kana: "おかもと ひな", romaji: "okamoto_hina", gen: 5, group: "nogizaka", blogPath: "okamotohina" },
-  { name: "小川彩", kana: "おがわ あや", romaji: "ogawa_aya", gen: 5, group: "nogizaka", blogPath: "ogawaaya" },
-  { name: "奥田いろは", kana: "おくだ いろは", romaji: "okuda_iroha", gen: 5, group: "nogizaka", blogPath: "okudairoha" },
-  { name: "川﨑桜", kana: "かわさき さくら", romaji: "kawasaki_sakura", gen: 5, group: "nogizaka", blogPath: "kawasakisakura" },
-  { name: "菅原咲月", kana: "すがわら さつき", romaji: "sugawara_satsuki", gen: 5, group: "nogizaka", blogPath: "sugawarasatsuki" },
-  { name: "冨里奈央", kana: "とみさと なお", romaji: "tomisato_nao", gen: 5, group: "nogizaka", blogPath: "tomisatonao" },
-  { name: "中西アルノ", kana: "なかにし あるの", romaji: "nakanishi_aruno", gen: 5, group: "nogizaka", blogPath: "nakanishiaruno" },
+  { name: "五百城茉央", kana: "いおき まお", romaji: "ioki_mao", gen: 5, group: "nogizaka", ct: 55396 },
+  { name: "池田瑛紗", kana: "いけだ てれさ", romaji: "ikeda_teresa", gen: 5, group: "nogizaka", ct: 55397 },
+  { name: "一ノ瀬美空", kana: "いちのせ みく", romaji: "ichinose_miku", gen: 5, group: "nogizaka", ct: 55390 },
+  { name: "井上和", kana: "いのうえ なぎ", romaji: "inoue_nagi", gen: 5, group: "nogizaka", ct: 55389 },
+  { name: "岡本姫奈", kana: "おかもと ひな", romaji: "okamoto_hina", gen: 5, group: "nogizaka", ct: 55401 },
+  { name: "小川彩", kana: "おがわ あや", romaji: "ogawa_aya", gen: 5, group: "nogizaka", ct: 55392 },
+  { name: "奥田いろは", kana: "おくだ いろは", romaji: "okuda_iroha", gen: 5, group: "nogizaka", ct: 55394 },
+  { name: "川﨑桜", kana: "かわさき さくら", romaji: "kawasaki_sakura", gen: 5, group: "nogizaka", ct: 55400 },
+  { name: "菅原咲月", kana: "すがわら さつき", romaji: "sugawara_satsuki", gen: 5, group: "nogizaka", ct: 55391 },
+  { name: "冨里奈央", kana: "とみさと なお", romaji: "tomisato_nao", gen: 5, group: "nogizaka", ct: 55393 },
+  { name: "中西アルノ", kana: "なかにし あるの", romaji: "nakanishi_aruno", gen: 5, group: "nogizaka", ct: 55395 },
 
   // ============================================================
   // 日向坂46
@@ -120,6 +120,13 @@ const BLOG_LIST_URLS = {
   sakurazaka: "https://sakurazaka46.com/s/s46/diary/blog?ima=0000",
 };
 
+// メンバー個別ブログURL（ct IDが設定されているメンバーのみ）
+const BLOG_MEMBER_TEMPLATES = {
+  nogizaka: "https://www.nogizaka46.com/s/n46/diary/MEMBER/list?ct=",
+  hinatazaka: "https://www.hinatazaka46.com/s/official/diary/member/list?ima=0000&ct=",
+  sakurazaka: "https://sakurazaka46.com/s/s46/diary/blog/list?ima=0000&ct=",
+};
+
 // blogara.jp（ブログ更新まとめ - 画像サムネ付き）
 const BLOGARA_URLS = {
   nogizaka: "https://blogara.jp/t/nogizaka46/",
@@ -136,6 +143,12 @@ const YOUTUBE_CHANNELS = {
 
 function getGroupBlogListUrl(group) {
   return BLOG_LIST_URLS[group] || BLOG_LIST_URLS.nogizaka;
+}
+
+function getMemberBlogUrl(member) {
+  if (!member.ct) return null;
+  const template = BLOG_MEMBER_TEMPLATES[member.group] || BLOG_MEMBER_TEMPLATES.nogizaka;
+  return template + member.ct;
 }
 
 function getGroupBlogaraUrl(group) {

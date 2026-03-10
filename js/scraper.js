@@ -33,7 +33,7 @@ const Scraper = {
     let step = 0;
     const totalSteps = targetGroups.length * 2 + memberList.length; // blog+blogara per group + links per member
 
-    // --- 1. グループ一覧ページから画像スクレイピング ---
+    // --- 1a. グループ一覧ページから画像スクレイピング ---
     if (sources.includes("blog")) {
       for (const group of targetGroups) {
         if (this._aborted) break;
@@ -51,6 +51,26 @@ const Scraper = {
           progress: (step / totalSteps) * 100,
         });
         await this._sleep(500);
+      }
+
+      // --- 1b. 推しメンバーの個別ブログページ（ct IDあり）---
+      const oshiWithCt = memberList.filter(m => Store.isOshi(m.name) && m.ct);
+      for (const member of oshiWithCt) {
+        if (this._aborted) break;
+        const memberBlogUrl = getMemberBlogUrl(member);
+        if (!memberBlogUrl) continue;
+
+        onProgress({ type: "oshi", message: `★推し ${member.name} の個別ブログを取得中...`, progress: (step / totalSteps) * 100 });
+
+        const memberImages = await this._scrapePage(memberBlogUrl, `${member.name} ブログ`, [member]);
+        collected.push(...memberImages);
+
+        onProgress({
+          type: memberImages.length > 0 ? "done" : "err",
+          message: memberImages.length > 0 ? `  → ${member.name}: ${memberImages.length}枚` : `  → ${member.name}: 取得失敗`,
+          progress: (step / totalSteps) * 100,
+        });
+        await this._sleep(800);
       }
     }
 
