@@ -279,8 +279,12 @@ document.getElementById("start-collect").addEventListener("click", async () => {
       resultCard.style.display = "block";
       const imgCount = allCollected.filter(i => i.type === "image").length;
       const vidCount = allCollected.filter(i => i.type === "video").length;
-      document.getElementById("result-stats").textContent =
-        `画像: ${imgCount}枚 / 動画: ${vidCount}件`;
+      const linkCount = allCollected.filter(i => i.type === "link").length;
+      const parts = [];
+      if (imgCount > 0) parts.push(`画像: ${imgCount}枚`);
+      if (vidCount > 0) parts.push(`動画: ${vidCount}件`);
+      if (linkCount > 0) parts.push(`検索リンク: ${linkCount}件`);
+      document.getElementById("result-stats").textContent = parts.join(" / ");
       Gallery.renderPreview(allCollected, "result-grid");
     }
   } catch (err) {

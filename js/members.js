@@ -113,11 +113,18 @@ const MEMBERS = [
   { name: "向井純葉", kana: "むかい いとは", romaji: "mukai_itoha", gen: 3, group: "sakurazaka", blogPath: "mukaiitoha" },
 ];
 
-// グループ別ブログURL
-const BLOG_URLS = {
-  nogizaka: "https://blog.nogizaka46.com/s/n46/diary/MEMBER",
-  hinatazaka: "https://blog.hinatazaka46.com/s/official/diary/detail/MEMBER",
-  sakurazaka: "https://sakurazaka46.com/s/s46/diary/detail/MEMBER",
+// グループ別ブログURL（一覧ページ = 全メンバーの最新投稿が画像付きで並ぶ）
+const BLOG_LIST_URLS = {
+  nogizaka: "https://www.nogizaka46.com/s/n46/diary/MEMBER/list",
+  hinatazaka: "https://www.hinatazaka46.com/s/official/diary/member",
+  sakurazaka: "https://sakurazaka46.com/s/s46/diary/blog?ima=0000",
+};
+
+// blogara.jp（ブログ更新まとめ - 画像サムネ付き）
+const BLOGARA_URLS = {
+  nogizaka: "https://blogara.jp/t/nogizaka46/",
+  hinatazaka: "https://blogara.jp/t/hinatazaka46/",
+  sakurazaka: "https://blogara.jp/t/sakurazaka46/",
 };
 
 // グループ別YouTubeチャンネル
@@ -127,9 +134,12 @@ const YOUTUBE_CHANNELS = {
   sakurazaka: { id: "UCy2EhOFCgakgp2Iu-NBLUIQ", name: "櫻坂46" },
 };
 
-function getMemberBlogUrl(member) {
-  const template = BLOG_URLS[member.group] || BLOG_URLS.nogizaka;
-  return template.replace("MEMBER", member.blogPath || "");
+function getGroupBlogListUrl(group) {
+  return BLOG_LIST_URLS[group] || BLOG_LIST_URLS.nogizaka;
+}
+
+function getGroupBlogaraUrl(group) {
+  return BLOGARA_URLS[group] || BLOGARA_URLS.nogizaka;
 }
 
 function getGroupName(groupId) {
