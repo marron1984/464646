@@ -127,6 +127,20 @@ const BLOG_MEMBER_TEMPLATES = {
   sakurazaka: "https://sakurazaka46.com/s/s46/diary/blog/list?ima=0000&ct=",
 };
 
+// 公式JSON API（ブログ記事リスト取得）
+const BLOG_API_TEMPLATES = {
+  nogizaka: "https://www.nogizaka46.com/s/n46/api/json/diary?cd=MEMBER&rw=",
+  hinatazaka: "https://www.hinatazaka46.com/s/official/api/json/diary?cd=MEMBER&rw=",
+  sakurazaka: "https://sakurazaka46.com/s/s46/api/json/diary?cd=MEMBER&rw=",
+};
+
+// ブログ記事詳細URL
+const BLOG_DETAIL_TEMPLATES = {
+  nogizaka: "https://www.nogizaka46.com/s/n46/diary/detail/",
+  hinatazaka: "https://www.hinatazaka46.com/s/official/diary/detail/",
+  sakurazaka: "https://sakurazaka46.com/s/s46/diary/detail/",
+};
+
 // blogara.jp（ブログ更新まとめ - 画像サムネ付き）
 const BLOGARA_URLS = {
   nogizaka: "https://blogara.jp/t/nogizaka46/",
@@ -149,6 +163,20 @@ function getMemberBlogUrl(member) {
   if (!member.ct) return null;
   const template = BLOG_MEMBER_TEMPLATES[member.group] || BLOG_MEMBER_TEMPLATES.nogizaka;
   return template + member.ct;
+}
+
+/** JSON APIでメンバーの最近のブログ記事URLを取得するURL */
+function getMemberBlogApiUrl(member, count = 10) {
+  if (!member.ct) return null;
+  const group = member.group || "nogizaka";
+  const template = BLOG_API_TEMPLATES[group] || BLOG_API_TEMPLATES.nogizaka;
+  return `${template}${count}&member_id=${member.ct}`;
+}
+
+/** ブログ記事詳細ページURL */
+function getBlogDetailUrl(group, postId) {
+  const template = BLOG_DETAIL_TEMPLATES[group] || BLOG_DETAIL_TEMPLATES.nogizaka;
+  return `${template}${postId}`;
 }
 
 function getGroupBlogaraUrl(group) {

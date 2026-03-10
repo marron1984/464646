@@ -59,24 +59,38 @@ const Scraper = {
         await this._sleep(500);
       }
 
-      // --- 1b. 推しメンバーの個別ブログページ（ct IDあり）---
+      // --- 1b. 推しメンバーのブログ記事から画像取得（JSON API → 記事詳細）---
       const oshiWithCt = memberList.filter(m => Store.isOshi(m.name) && m.ct);
       for (const member of oshiWithCt) {
         if (this._aborted) break;
-        const memberBlogUrl = getMemberBlogUrl(member);
-        if (!memberBlogUrl) continue;
 
-        onProgress({ type: "oshi", message: `★推し ${member.name} の個別ブログを取得中...`, progress: (step / totalSteps) * 100 });
+        onProgress({ type: "oshi", message: `★推し ${member.name} のブログを取得中...`, progress: (step / totalSteps) * 100 });
 
-        const memberImages = await this._scrapePage(memberBlogUrl, `${member.name} ブログ`, [member]);
-        collected.push(...memberImages);
-
-        onProgress({
-          type: memberImages.length > 0 ? "done" : "err",
-          message: memberImages.length > 0 ? `  → ${member.name}: ${memberImages.length}枚` : `  → ${member.name}: 取得失敗`,
-          progress: (step / totalSteps) * 100,
-        });
-        await this._sleep(800);
+        // まずJSON APIで記事リストを取得
+        const apiImages = await this._scrapeViaApi(member, onProgress);
+        if (apiImages.length > 0) {
+          collected.push(...apiImages);
+          onProgress({
+            type: "done",
+            message: `  → ${member.name}: ${apiImages.length}枚（API経由）`,
+            progress: (step / totalSteps) * 100,
+          });
+        } else {
+          // APIが使えない場合はHTML一覧ページにフォールバック
+          const memberBlogUrl = getMemberBlogUrl(member);
+          if (memberBlogUrl) {
+            const fallbackImages = await this._scrapePage(memberBlogUrl, `${member.name} ブログ`, [member]);
+            collected.push(...fallbackImages);
+            onProgress({
+              type: fallbackImages.length > 0 ? "done" : "err",
+              message: fallbackImages.length > 0 ? `  → ${member.name}: ${fallbackImages.length}枚（HTML）` : `  → ${member.name}: 取得失敗`,
+              progress: (step / totalSteps) * 100,
+            });
+          } else {
+            onProgress({ type: "err", message: `  → ${member.name}: 取得失敗`, progress: (step / totalSteps) * 100 });
+          }
+        }
+        await this._sleep(500);
       }
     }
 
@@ -201,6 +215,158 @@ const Scraper = {
       if (i < memberList.length - 1) await this._sleep(500);
     }
     return collected;
+  },
+
+  // ============================
+  // JSON API経由ブログ画像取得
+  // ============================
+  async _scrapeViaApi(member, onProgress) {
+    const apiUrl = getMemberBlogApiUrl(member, 5); // 最新5記事
+    if (!apiUrl) return [];
+
+    try {
+      const json = await this._fetchJson(apiUrl);
+      if (!json || !json.data) {
+        console.warn(`[API] No data from ${apiUrl}`);
+        return [];
+      }
+
+      const posts = json.data || [];
+      console.log(`[API] ${member.name}: ${posts.length} posts found`);
+
+      const allImages = [];
+
+      for (const post of posts.slice(0, 5)) {
+        if (this._aborted) break;
+
+        // 記事詳細ページURL構築
+        const postLink = post.link || "";
+        if (!postLink) continue;
+
+        // 記事ページのHTMLから画像を抽出
+        const fullUrl = postLink.startsWith("http") ? postLink : `https://${this._getGroupDomain(member.group)}${postLink}`;
+        const html = await this._fetchWithProxy(fullUrl);
+        if (!html) continue;
+
+        const images = this._extractBlogPostImages(html, fullUrl);
+        const postDate = post.pubdate?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+
+        for (const imgUrl of images) {
+          allImages.push({
+            url: imgUrl,
+            thumbUrl: imgUrl,
+            title: `${member.name} - ${post.title || "ブログ"}`,
+            member: member.name,
+            type: "image",
+            source: "blog-api",
+            date: postDate,
+          });
+        }
+
+        await this._sleep(300);
+      }
+
+      return allImages;
+    } catch (e) {
+      console.warn(`[API] Error for ${member.name}:`, e.message);
+      return [];
+    }
+  },
+
+  _getGroupDomain(group) {
+    const domains = {
+      nogizaka: "www.nogizaka46.com",
+      hinatazaka: "www.hinatazaka46.com",
+      sakurazaka: "sakurazaka46.com",
+    };
+    return domains[group] || domains.nogizaka;
+  },
+
+  /** JSON APIフェッチ（プロキシ経由） */
+  async _fetchJson(url) {
+    // 自前プロキシ優先
+    try {
+      const res = await fetch(getSelfProxyUrl(url), {
+        signal: AbortSignal.timeout(15000),
+        headers: { "Accept": "application/json,*/*" },
+      });
+      if (res.ok) {
+        const text = await res.text();
+        try { return JSON.parse(text); } catch { /* not JSON */ }
+      }
+    } catch (e) {
+      console.warn(`[fetchJson] Self-proxy failed:`, e.message);
+    }
+
+    // 外部プロキシ
+    const settings = Store.getSettings();
+    const proxies = [settings.corsProxy, ...CORS_PROXIES].filter(Boolean);
+    for (const proxy of [...new Set(proxies)]) {
+      try {
+        const res = await fetch(`${proxy}${encodeURIComponent(url)}`, {
+          signal: AbortSignal.timeout(12000),
+          headers: { "Accept": "application/json,*/*" },
+        });
+        if (res.ok) {
+          const text = await res.text();
+          try { return JSON.parse(text); } catch { /* not JSON */ }
+        }
+      } catch (e) { /* next */ }
+    }
+    return null;
+  },
+
+  /** ブログ記事詳細ページから画像URLを抽出（entrybody特化） */
+  _extractBlogPostImages(html, baseUrl) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const urls = new Set();
+
+    // 坂道公式CMS: entrybody内の画像が本文画像
+    const entrySelectors = [
+      ".entrybody img",
+      ".bd-blog-detail__content img",
+      ".c-blog-article__text img",
+      ".p-blog-article__text img",
+      ".p-diary__text img",
+      // フォールバック
+      "article img",
+      ".content img",
+    ];
+
+    let imgs = [];
+    for (const sel of entrySelectors) {
+      try {
+        const found = doc.querySelectorAll(sel);
+        if (found.length > 0) {
+          imgs.push(...found);
+          break; // 最初にマッチしたセレクタの結果を使う
+        }
+      } catch (e) { /* */ }
+    }
+
+    // セレクタがどれもマッチしない場合は全img
+    if (imgs.length === 0) {
+      imgs = [...doc.querySelectorAll("img")];
+    }
+
+    for (const img of imgs) {
+      const src = img.getAttribute("data-original")
+        || img.getAttribute("data-src")
+        || img.getAttribute("data-lazy-src")
+        || img.getAttribute("src")
+        || "";
+      if (!src || src.startsWith("data:")) continue;
+
+      try {
+        const fullUrl = new URL(src, baseUrl).href;
+        if (this._isValidImage(fullUrl)) {
+          urls.add(fullUrl);
+        }
+      } catch (e) { /* */ }
+    }
+
+    return [...urls];
   },
 
   // ============================
