@@ -11,11 +11,17 @@
  *  - Google画像検索 / Pinterest / X / Bing / まとめサイト
  */
 
+// 外部CORSプロキシ（自前プロキシ失敗時のフォールバック）
 const CORS_PROXIES = [
   "https://corsproxy.io/?",
   "https://api.allorigins.win/raw?url=",
   "https://api.codetabs.com/v1/proxy?quest=",
 ];
+
+// 自前Vercelプロキシ（最優先）
+function getSelfProxyUrl(targetUrl) {
+  return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+}
 
 const Scraper = {
   _aborted: false,
@@ -47,7 +53,7 @@ const Scraper = {
 
         onProgress({
           type: blogImages.length > 0 ? "done" : "err",
-          message: blogImages.length > 0 ? `  → ${groupName}: ${blogImages.length}枚の画像を取得` : `  → ${groupName}: 取得失敗（プロキシがブロックされている可能性）`,
+          message: blogImages.length > 0 ? `  → ${groupName}: ${blogImages.length}枚の画像を取得` : `  → ${groupName}: 画像なし（サイトがブロック or 構造変更の可能性）`,
           progress: (step / totalSteps) * 100,
         });
         await this._sleep(500);
@@ -200,11 +206,16 @@ const Scraper = {
   // ============================
   // ページスクレイピング（CORSプロキシ経由）
   // ============================
-  async _scrapePage(url, sourceName, memberList) {
+  async _scrapePage(url, sourceName, memberList, onProgress) {
     const html = await this._fetchWithProxy(url);
-    if (!html) return [];
+    if (!html) {
+      console.warn(`[scrapePage] No HTML returned for ${url}`);
+      return [];
+    }
+    console.log(`[scrapePage] Got ${html.length} bytes from ${url}`);
 
     const images = this._extractImageUrls(html, url);
+    console.log(`[scrapePage] Extracted ${images.length} images from ${sourceName}`);
     const memberNameSet = new Set(memberList.map(m => m.name));
 
     return images.map(imgUrl => {
@@ -253,13 +264,23 @@ const Scraper = {
 
     // 記事内の画像セレクタ（幅広くカバー）
     const selectors = [
+      // 坂道公式サイト共通CMS（最優先）
+      ".bd-blog-detail img",
+      ".bd-blog-detail__content img",
+      ".bl-card__thumbnail img",
+      ".bl-card img",
+      ".c-blog-article__text img",
+      ".p-blog-article__text img",
+      ".p-blog-article img",
+      ".c-blog-top__card img",
+      ".p-diary__text img",
+      // 汎用ブログセレクタ
       "article img", ".blog-entry img", ".entry img", ".post img",
       ".article-body img", ".content img", ".main img",
       ".entry-content img", ".post-content img", ".article-content img",
       ".diary-content img", ".blog-content img",
-      // 各ブログサイト固有
       ".blog-article img", ".diary-article img",
-      ".bl-body img", ".bd-blog-detail img",
+      ".bl-body img",
       // blogara
       ".t-body img", ".article-image img",
     ];
@@ -447,6 +468,25 @@ const Scraper = {
   // CORSプロキシ付きfetch（フォールバック）
   // ============================
   async _fetchWithProxy(url) {
+    // 1. 自前Vercelプロキシ（最優先・最速・最も確実）
+    try {
+      const selfUrl = getSelfProxyUrl(url);
+      const res = await fetch(selfUrl, {
+        signal: AbortSignal.timeout(20000),
+        headers: { "Accept": "text/html,*/*" },
+      });
+      if (res.ok) {
+        const text = await res.text();
+        if (text.length > 200 && (text.includes("<") || text.includes("img"))) {
+          console.log(`Self-proxy OK for ${url} (${text.length} bytes)`);
+          return text;
+        }
+      }
+    } catch (e) {
+      console.warn(`Self-proxy failed for ${url}:`, e.message);
+    }
+
+    // 2. ユーザー設定 + 外部CORSプロキシ（フォールバック）
     const settings = Store.getSettings();
     const proxies = [settings.corsProxy, ...CORS_PROXIES].filter(Boolean);
     const uniqueProxies = [...new Set(proxies)];
@@ -460,8 +500,8 @@ const Scraper = {
         });
         if (res.ok) {
           const text = await res.text();
-          // HTML っぽいレスポンスか確認
-          if (text.length > 500 && (text.includes("<") || text.includes("img"))) {
+          if (text.length > 200 && (text.includes("<") || text.includes("img"))) {
+            console.log(`External proxy OK: ${proxy} for ${url}`);
             return text;
           }
         }
@@ -470,7 +510,7 @@ const Scraper = {
       }
     }
 
-    // プロキシなし直接試行
+    // 3. 直接試行（同一オリジンの場合のみ）
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (res.ok) return await res.text();
@@ -481,10 +521,6 @@ const Scraper = {
 
   /** 画像をblob経由でダウンロード */
   async downloadImage(url) {
-    const settings = Store.getSettings();
-    const proxies = [settings.corsProxy, ...CORS_PROXIES].filter(Boolean);
-    const uniqueProxies = [...new Set(proxies)];
-
     // 直接
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -494,8 +530,19 @@ const Scraper = {
       }
     } catch (e) { /* CORS */ }
 
-    // プロキシ経由
-    for (const proxy of uniqueProxies) {
+    // 自前プロキシ
+    try {
+      const res = await fetch(getSelfProxyUrl(url), { signal: AbortSignal.timeout(15000) });
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 1000) return blob;
+      }
+    } catch (e) { /* next */ }
+
+    // 外部プロキシ
+    const settings = Store.getSettings();
+    const proxies = [settings.corsProxy, ...CORS_PROXIES].filter(Boolean);
+    for (const proxy of [...new Set(proxies)]) {
       try {
         const res = await fetch(`${proxy}${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(12000) });
         if (res.ok) {
