@@ -59,36 +59,32 @@ const Scraper = {
         await this._sleep(500);
       }
 
-      // --- 1b. 推しメンバーのブログ記事から画像取得（JSON API → 記事詳細）---
+      // --- 1b. 推しメンバーのブログ記事から画像取得 ---
       const oshiWithCt = memberList.filter(m => Store.isOshi(m.name) && m.ct);
       for (const member of oshiWithCt) {
         if (this._aborted) break;
 
         onProgress({ type: "oshi", message: `★推し ${member.name} のブログを取得中...`, progress: (step / totalSteps) * 100 });
 
-        // まずJSON APIで記事リストを取得
-        const apiImages = await this._scrapeViaApi(member, onProgress);
-        if (apiImages.length > 0) {
-          collected.push(...apiImages);
+        let memberImages = [];
+
+        // 方法1: JSON API（乃木坂・櫻坂で利用可能）
+        memberImages = await this._scrapeViaApi(member, onProgress);
+
+        // 方法2: HTML一覧ページ（APIが使えない場合 / 日向坂）
+        if (memberImages.length === 0) {
+          memberImages = await this._scrapeHtmlPages(member);
+        }
+
+        if (memberImages.length > 0) {
+          collected.push(...memberImages);
           onProgress({
             type: "done",
-            message: `  → ${member.name}: ${apiImages.length}枚（API経由）`,
+            message: `  → ${member.name}: ${memberImages.length}枚の画像を発見`,
             progress: (step / totalSteps) * 100,
           });
         } else {
-          // APIが使えない場合はHTML一覧ページにフォールバック
-          const memberBlogUrl = getMemberBlogUrl(member);
-          if (memberBlogUrl) {
-            const fallbackImages = await this._scrapePage(memberBlogUrl, `${member.name} ブログ`, [member]);
-            collected.push(...fallbackImages);
-            onProgress({
-              type: fallbackImages.length > 0 ? "done" : "err",
-              message: fallbackImages.length > 0 ? `  → ${member.name}: ${fallbackImages.length}枚（HTML）` : `  → ${member.name}: 取得失敗`,
-              progress: (step / totalSteps) * 100,
-            });
-          } else {
-            onProgress({ type: "err", message: `  → ${member.name}: 取得失敗`, progress: (step / totalSteps) * 100 });
-          }
+          onProgress({ type: "err", message: `  → ${member.name}: 取得失敗`, progress: (step / totalSteps) * 100 });
         }
         await this._sleep(500);
       }
@@ -273,6 +269,38 @@ const Scraper = {
     }
   },
 
+  /** HTML一覧ページから画像取得（日向坂等、APIなしグループ用） */
+  async _scrapeHtmlPages(member) {
+    const memberBlogUrl = getMemberBlogUrl(member);
+    if (!memberBlogUrl) return [];
+
+    const allImages = [];
+    // 最大2ページ取得
+    for (let page = 0; page < 2; page++) {
+      if (this._aborted) break;
+      const pageUrl = page === 0 ? memberBlogUrl : `${memberBlogUrl}&page=${page}`;
+      const html = await this._fetchWithProxy(pageUrl);
+      if (!html) break;
+
+      const images = this._extractBlogPostImages(html, pageUrl);
+      if (images.length === 0) break; // これ以上ページがない
+
+      for (const imgUrl of images) {
+        allImages.push({
+          url: imgUrl,
+          thumbUrl: imgUrl,
+          title: `${member.name} - ブログ`,
+          member: member.name,
+          type: "image",
+          source: "blog",
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
+      await this._sleep(500);
+    }
+    return allImages;
+  },
+
   _getGroupDomain(group) {
     const domains = {
       nogizaka: "www.nogizaka46.com",
@@ -316,57 +344,86 @@ const Scraper = {
     return null;
   },
 
-  /** ブログ記事詳細ページから画像URLを抽出（entrybody特化） */
+  /** ブログ記事詳細ページから画像URLを抽出（確認済みセレクタ使用） */
   _extractBlogPostImages(html, baseUrl) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
     const urls = new Set();
 
-    // 坂道公式CMS: entrybody内の画像が本文画像
+    // 確認済みセレクタ（グループ別に最適なものを順番に試す）
     const entrySelectors = [
-      ".entrybody img",
-      ".bd-blog-detail__content img",
-      ".c-blog-article__text img",
-      ".p-blog-article__text img",
-      ".p-diary__text img",
+      // 乃木坂46（旧サイト互換 + 新サイト）
+      ".entrybody",
+      // 日向坂46
+      ".c-blog-article__text",
+      // 櫻坂46 / 共通
+      ".p-blog-article__text",
+      ".bd-blog-detail__content",
       // フォールバック
-      "article img",
-      ".content img",
+      "article",
+      ".content",
     ];
 
-    let imgs = [];
+    // コンテナ要素を特定
+    let containers = [];
     for (const sel of entrySelectors) {
       try {
         const found = doc.querySelectorAll(sel);
         if (found.length > 0) {
-          imgs.push(...found);
-          break; // 最初にマッチしたセレクタの結果を使う
+          containers = [...found];
+          break;
         }
       } catch (e) { /* */ }
     }
 
-    // セレクタがどれもマッチしない場合は全img
-    if (imgs.length === 0) {
-      imgs = [...doc.querySelectorAll("img")];
+    // コンテナ内から画像を抽出
+    for (const container of containers) {
+      // 1. リンク先が画像の場合、高画質版を優先取得（a[href] → img[src]）
+      for (const a of container.querySelectorAll("a[href]")) {
+        const href = a.getAttribute("href") || "";
+        if (this._isValidImage(href)) {
+          try {
+            urls.add(new URL(href, baseUrl).href);
+          } catch (e) { /* */ }
+          continue; // リンク先が画像なら、中のimgは取らない（サムネだから）
+        }
+        // リンク先が画像でない場合、中のimgを取る
+        for (const img of a.querySelectorAll("img")) {
+          this._addImgSrc(img, baseUrl, urls);
+        }
+      }
+
+      // 2. リンクに包まれていないimg
+      for (const img of container.querySelectorAll("img")) {
+        if (img.closest("a")) continue; // 上で処理済み
+        this._addImgSrc(img, baseUrl, urls);
+      }
     }
 
-    for (const img of imgs) {
-      const src = img.getAttribute("data-original")
-        || img.getAttribute("data-src")
-        || img.getAttribute("data-lazy-src")
-        || img.getAttribute("src")
-        || "";
-      if (!src || src.startsWith("data:")) continue;
-
-      try {
-        const fullUrl = new URL(src, baseUrl).href;
-        if (this._isValidImage(fullUrl)) {
-          urls.add(fullUrl);
-        }
-      } catch (e) { /* */ }
+    // コンテナが見つからない場合は全imgフォールバック
+    if (containers.length === 0) {
+      for (const img of doc.querySelectorAll("img")) {
+        this._addImgSrc(img, baseUrl, urls);
+      }
     }
 
     return [...urls];
+  },
+
+  /** img要素からsrcを取得してSetに追加 */
+  _addImgSrc(img, baseUrl, urls) {
+    const src = img.getAttribute("data-original")
+      || img.getAttribute("data-src")
+      || img.getAttribute("data-lazy-src")
+      || img.getAttribute("src")
+      || "";
+    if (!src || src.startsWith("data:")) return;
+    try {
+      const fullUrl = new URL(src, baseUrl).href;
+      if (this._isValidImage(fullUrl)) {
+        urls.add(fullUrl);
+      }
+    } catch (e) { /* */ }
   },
 
   // ============================
@@ -421,60 +478,64 @@ const Scraper = {
   },
 
   // ============================
-  // HTML画像URL抽出
+  // HTML画像URL抽出（一覧ページ用）
   // ============================
   _extractImageUrls(html, baseUrl) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
     const urls = new Set();
 
-    // 記事内の画像セレクタ（幅広くカバー）
-    const selectors = [
-      // 坂道公式サイト共通CMS（最優先）
-      ".bd-blog-detail img",
-      ".bd-blog-detail__content img",
-      ".bl-card__thumbnail img",
-      ".bl-card img",
-      ".c-blog-article__text img",
-      ".p-blog-article__text img",
-      ".p-blog-article img",
-      ".c-blog-top__card img",
-      ".p-diary__text img",
-      // 汎用ブログセレクタ
-      "article img", ".blog-entry img", ".entry img", ".post img",
-      ".article-body img", ".content img", ".main img",
-      ".entry-content img", ".post-content img", ".article-content img",
-      ".diary-content img", ".blog-content img",
-      ".blog-article img", ".diary-article img",
-      ".bl-body img",
+    // コンテナセレクタ（記事ブロック単位で探す）
+    const containerSelectors = [
+      // 坂道公式: 記事ブロック
+      ".p-blog-article",
+      ".entrybody",
+      ".c-blog-article__text",
+      ".bd-blog-detail__content",
       // blogara
-      ".t-body img", ".article-image img",
+      ".t-body", ".article-image",
+      // 汎用
+      "article", ".blog-entry", ".entry", ".post",
     ];
 
-    let imgs = [];
-    for (const sel of selectors) {
-      try { imgs.push(...doc.querySelectorAll(sel)); } catch (e) { /* invalid selector */ }
-    }
-    // フォールバック: 全img
-    if (imgs.length === 0) {
-      imgs = [...doc.querySelectorAll("img")];
-    }
-
-    for (const img of imgs) {
-      const src = img.getAttribute("data-original")
-        || img.getAttribute("data-src")
-        || img.getAttribute("data-lazy-src")
-        || img.getAttribute("data-lazy")
-        || img.getAttribute("src")
-        || "";
-      if (!src || src.startsWith("data:")) continue;
-
+    let containers = [];
+    for (const sel of containerSelectors) {
       try {
-        const fullUrl = new URL(src, baseUrl).href;
-        if (this._isValidImage(fullUrl)) {
-          urls.add(fullUrl);
+        const found = doc.querySelectorAll(sel);
+        if (found.length > 0) {
+          containers = [...found];
+          break;
         }
-      } catch (e) { /* invalid URL */ }
+      } catch (e) { /* */ }
+    }
+
+    // コンテナ内の画像を取得（リンク先高画質版を優先）
+    const processContainer = (container) => {
+      // リンク先が画像のa要素
+      for (const a of container.querySelectorAll("a[href]")) {
+        const href = a.getAttribute("href") || "";
+        if (this._isValidImage(href)) {
+          try { urls.add(new URL(href, baseUrl).href); } catch (e) { /* */ }
+          continue;
+        }
+        for (const img of a.querySelectorAll("img")) {
+          this._addImgSrc(img, baseUrl, urls);
+        }
+      }
+      // リンクなしimg
+      for (const img of container.querySelectorAll("img")) {
+        if (img.closest("a")) continue;
+        this._addImgSrc(img, baseUrl, urls);
+      }
+    };
+
+    if (containers.length > 0) {
+      for (const c of containers) processContainer(c);
+    } else {
+      // フォールバック: 全img
+      for (const img of doc.querySelectorAll("img")) {
+        this._addImgSrc(img, baseUrl, urls);
+      }
     }
 
     // og:image
@@ -482,14 +543,6 @@ const Scraper = {
       const content = meta.getAttribute("content") || "";
       if (content) {
         try { urls.add(new URL(content, baseUrl).href); } catch (e) { /* */ }
-      }
-    }
-
-    // リンク先が画像URL
-    for (const a of doc.querySelectorAll("a[href]")) {
-      const href = a.getAttribute("href") || "";
-      if (this._isValidImage(href)) {
-        try { urls.add(new URL(href, baseUrl).href); } catch (e) { /* */ }
       }
     }
 
