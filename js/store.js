@@ -61,7 +61,7 @@ const Store = {
     return raw ? JSON.parse(raw) : {
       ytApiKey: "",
       googleApiKey: "",
-      googleCx: "",
+      googleCx: "41221bcf36b6e4848",
       corsProxy: "https://corsproxy.io/?",
     };
   },

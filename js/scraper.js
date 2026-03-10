@@ -114,7 +114,7 @@ const Scraper = {
     // --- 3. Google Custom Search API（設定済みなら）---
     if (sources.includes("google")) {
       const settings = Store.getSettings();
-      if (settings.googleApiKey && settings.googleCx) {
+      if (settings.googleApiKey) {
         for (const member of memberList) {
           if (this._aborted) break;
           const isOshi = Store.isOshi(member.name);
@@ -619,8 +619,9 @@ const Scraper = {
   // ============================
   async _googleApiSearch(memberName, groupName, isOshi) {
     const settings = Store.getSettings();
-    const { googleApiKey: apiKey, googleCx: cx } = settings;
-    if (!apiKey || !cx) return [];
+    const apiKey = settings.googleApiKey;
+    const cx = settings.googleCx || "41221bcf36b6e4848";
+    if (!apiKey) return [];
 
     const queries = [`${groupName} ${memberName}`];
     if (isOshi) queries.push(`${memberName} 高画質`);
