@@ -60,6 +60,8 @@ const Store = {
     const raw = localStorage.getItem(STORE_KEYS.SETTINGS);
     return raw ? JSON.parse(raw) : {
       ytApiKey: "",
+      googleApiKey: "",
+      googleCx: "",
       corsProxy: "https://corsproxy.io/?",
     };
   },

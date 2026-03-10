@@ -166,7 +166,6 @@ function loadOshiForm() {
 }
 
 // ===== 収集タブ =====
-let selectedMode = "blog";
 
 function updateOshiQuick() {
   const oshi = Store.getOshi();
@@ -180,19 +179,17 @@ function updateOshiQuick() {
   ).join("");
 }
 
-document.querySelectorAll(".mode-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("selected"));
-    btn.classList.add("selected");
-    selectedMode = btn.dataset.mode;
-  });
-});
+function getSelectedSources() {
+  return [...document.querySelectorAll('.source-item input[type="checkbox"]:checked')]
+    .map(cb => cb.value);
+}
 
 // 収集開始
 document.getElementById("start-collect").addEventListener("click", async () => {
   const btn = document.getElementById("start-collect");
-  btn.disabled = true;
-  btn.textContent = "収集中...";
+  const abortBtn = document.getElementById("abort-collect");
+  btn.style.display = "none";
+  abortBtn.style.display = "block";
 
   const progressCard = document.getElementById("progress-card");
   const progressLog = document.getElementById("progress-log");
@@ -205,28 +202,33 @@ document.getElementById("start-collect").addEventListener("click", async () => {
   progressBar.style.width = "0%";
 
   const oshi = Store.getOshi();
-  let targetMembers = [];
+  const sources = getSelectedSources();
+  const imageSources = sources.filter(s => s !== "youtube");
+  const includeYt = sources.includes("youtube");
 
-  // 推しメンバーを先頭に
+  // ターゲットメンバー構築（推し優先）
   const oshiMemberData = oshi.members
     .map(name => MEMBERS.find(m => m.name === name))
     .filter(Boolean);
 
+  let targetMembers;
   if (oshi.collectNonOshi !== false) {
     const otherMembers = MEMBERS.filter(m => !oshi.members.includes(m.name));
     targetMembers = [...oshiMemberData, ...otherMembers];
   } else {
-    targetMembers = oshiMemberData;
+    targetMembers = oshiMemberData.length ? oshiMemberData : MEMBERS;
   }
 
-  if (targetMembers.length === 0) {
-    targetMembers = MEMBERS;
-  }
-
-  // YouTube の場合は推しのみ or 少人数
-  let ytTargets = targetMembers;
-  if (oshi.oshiYoutube !== false && oshi.members.length > 0) {
-    ytTargets = oshiMemberData.length ? oshiMemberData : targetMembers.slice(0, 5);
+  // 推し以外は数を制限（多すぎると時間かかりすぎ）
+  const maxNonOshi = 5;
+  if (oshi.members.length > 0 && oshi.collectNonOshi !== false) {
+    const oshiSet = new Set(oshi.members);
+    let nonOshiCount = 0;
+    targetMembers = targetMembers.filter(m => {
+      if (oshiSet.has(m.name)) return true;
+      nonOshiCount++;
+      return nonOshiCount <= maxNonOshi;
+    });
   }
 
   const allCollected = [];
@@ -243,15 +245,22 @@ document.getElementById("start-collect").addEventListener("click", async () => {
   };
 
   try {
-    if (selectedMode === "blog" || selectedMode === "all") {
-      onProgress({ type: "oshi", message: "--- ブログ画像収集開始 ---" });
-      const blogItems = await Scraper.scrapeBlog(targetMembers, onProgress);
-      allCollected.push(...blogItems);
-      onProgress({ type: "done", message: `ブログ: ${blogItems.length}件収集完了` });
+    // 画像ソース収集
+    if (imageSources.length > 0) {
+      onProgress({ type: "oshi", message: `--- 画像収集開始 (${imageSources.join(", ")}) ---` });
+      const imgItems = await Scraper.scrapeImages(targetMembers, imageSources, onProgress);
+      allCollected.push(...imgItems);
+      onProgress({ type: "done", message: `画像: ${imgItems.length}件収集完了` });
     }
 
-    if (selectedMode === "youtube" || selectedMode === "all") {
+    // YouTube
+    if (includeYt) {
       onProgress({ type: "oshi", message: "--- YouTube動画検索開始 ---" });
+      // YouTube は推しメンバー優先
+      let ytTargets = targetMembers;
+      if (oshi.oshiYoutube !== false && oshiMemberData.length > 0) {
+        ytTargets = oshiMemberData;
+      }
       const ytItems = await Scraper.scrapeYoutube(ytTargets, onProgress);
       allCollected.push(...ytItems);
       onProgress({ type: "done", message: `YouTube: ${ytItems.length}件収集完了` });
@@ -260,7 +269,6 @@ document.getElementById("start-collect").addEventListener("click", async () => {
     // ギャラリーに保存
     Store.addBatchToGallery(allCollected);
 
-    // 結果表示
     onProgress({
       type: "done",
       message: `=== 収集完了: 合計 ${allCollected.length}件 ===`,
@@ -269,17 +277,26 @@ document.getElementById("start-collect").addEventListener("click", async () => {
 
     if (allCollected.length > 0) {
       resultCard.style.display = "block";
+      const imgCount = allCollected.filter(i => i.type === "image").length;
+      const vidCount = allCollected.filter(i => i.type === "video").length;
       document.getElementById("result-stats").textContent =
-        `画像: ${allCollected.filter(i => i.type === "image").length}枚 / 動画: ${allCollected.filter(i => i.type === "video").length}件`;
+        `画像: ${imgCount}枚 / 動画: ${vidCount}件`;
       Gallery.renderPreview(allCollected, "result-grid");
     }
-
   } catch (err) {
     onProgress({ type: "err", message: `エラー: ${err.message}` });
   }
 
-  btn.disabled = false;
-  btn.textContent = "収集開始";
+  btn.style.display = "block";
+  abortBtn.style.display = "none";
+});
+
+// 中止ボタン
+document.getElementById("abort-collect").addEventListener("click", () => {
+  Scraper.abort();
+  document.getElementById("start-collect").style.display = "block";
+  document.getElementById("abort-collect").style.display = "none";
+  toast("収集を中止しました");
 });
 
 // ZIP ダウンロード
@@ -335,12 +352,16 @@ document.addEventListener("keydown", e => {
 // ===== 設定 =====
 function loadSettings() {
   const s = Store.getSettings();
+  document.getElementById("google-api-key").value = s.googleApiKey || "";
+  document.getElementById("google-cx").value = s.googleCx || "";
   document.getElementById("yt-api-key").value = s.ytApiKey || "";
   document.getElementById("cors-proxy").value = s.corsProxy || "https://corsproxy.io/?";
 }
 
 document.getElementById("save-settings").addEventListener("click", () => {
   Store.saveSettings({
+    googleApiKey: document.getElementById("google-api-key").value.trim(),
+    googleCx: document.getElementById("google-cx").value.trim(),
     ytApiKey: document.getElementById("yt-api-key").value.trim(),
     corsProxy: document.getElementById("cors-proxy").value.trim(),
   });

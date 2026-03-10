@@ -74,27 +74,59 @@
         <div id="oshi-quick-list" class="oshi-quick-list"></div>
       </div>
 
-      <!-- モード選択 -->
+      <!-- ソース選択 -->
       <div class="card">
-        <h2>収集モード</h2>
-        <div class="mode-buttons">
-          <button class="mode-btn selected" data-mode="blog">
-            <span class="mode-icon">&#128247;</span>
-            <span class="mode-label">ブログ画像</span>
-          </button>
-          <button class="mode-btn" data-mode="youtube">
-            <span class="mode-icon">&#127909;</span>
-            <span class="mode-label">YouTube</span>
-          </button>
-          <button class="mode-btn" data-mode="all">
-            <span class="mode-icon">&#11088;</span>
-            <span class="mode-label">まとめて</span>
-          </button>
+        <h2>収集ソース</h2>
+        <p class="hint">チェックしたソースから画像・動画を収集します</p>
+        <div class="source-list">
+          <label class="source-item">
+            <input type="checkbox" value="google" checked>
+            <span class="source-icon">&#128269;</span>
+            <div>
+              <div class="source-name">Google画像検索</div>
+              <div class="source-desc">高画質画像を大量取得（APIキー要）</div>
+            </div>
+          </label>
+          <label class="source-item">
+            <input type="checkbox" value="blog" checked>
+            <span class="source-icon">&#128221;</span>
+            <div>
+              <div class="source-name">公式ブログ</div>
+              <div class="source-desc">乃木坂/日向坂/櫻坂 公式ブログ</div>
+            </div>
+          </label>
+          <label class="source-item">
+            <input type="checkbox" value="fansite" checked>
+            <span class="source-icon">&#128240;</span>
+            <div>
+              <div class="source-name">まとめサイト</div>
+              <div class="source-desc">ファンブログ・まとめサイト</div>
+            </div>
+          </label>
+          <label class="source-item">
+            <input type="checkbox" value="pinterest" checked>
+            <span class="source-icon">&#128204;</span>
+            <div>
+              <div class="source-name">Pinterest</div>
+              <div class="source-desc">高画質ピン画像</div>
+            </div>
+          </label>
+          <label class="source-item">
+            <input type="checkbox" value="youtube" checked>
+            <span class="source-icon">&#127909;</span>
+            <div>
+              <div class="source-name">YouTube</div>
+              <div class="source-desc">動画＋サムネイル（APIキー要）</div>
+            </div>
+          </label>
         </div>
       </div>
 
       <button id="start-collect" class="btn btn-accent btn-large">
         収集開始
+      </button>
+      <button id="abort-collect" class="btn btn-danger btn-large" style="display:none">
+        中止
       </button>
 
       <!-- 進捗 -->
@@ -145,13 +177,26 @@
     <!-- ===== 設定タブ ===== -->
     <section id="tab-settings" class="tab-content">
       <div class="card">
+        <h2>Google API（画像検索）</h2>
+        <p class="hint">Google画像検索には Custom Search JSON API が必要です</p>
+        <div class="form-group">
+          <label>API キー</label>
+          <input type="text" id="google-api-key" placeholder="AIza..." class="input-text">
+        </div>
+        <div class="form-group">
+          <label>カスタム検索エンジンID (cx)</label>
+          <input type="text" id="google-cx" placeholder="検索エンジンID" class="input-text">
+          <span class="hint"><a href="https://programmablesearchengine.google.com/" target="_blank" rel="noopener">Programmable Search Engine</a> で作成。「画像検索」をONに。</span>
+        </div>
+      </div>
+      <div class="card">
         <h2>YouTube API キー</h2>
-        <p class="hint">YouTube動画検索にはAPIキーが必要です（<a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>で取得）</p>
+        <p class="hint"><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a> で YouTube Data API v3 キーを取得</p>
         <input type="text" id="yt-api-key" placeholder="AIza..." class="input-text">
       </div>
       <div class="card">
         <h2>CORS プロキシ</h2>
-        <p class="hint">ブログ画像取得にプロキシが必要な場合に設定</p>
+        <p class="hint">ブログ・Pinterest等の取得に使用。複数プロキシに自動フォールバックします</p>
         <input type="text" id="cors-proxy" placeholder="https://corsproxy.io/?" class="input-text" value="https://corsproxy.io/?">
       </div>
       <div class="card">

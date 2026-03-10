@@ -47,14 +47,43 @@ const Gallery = {
           <img src="${this._escHtml(item.thumbUrl)}" alt="${this._escHtml(item.title)}" loading="lazy"
                onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1 1%22><rect fill=%22%231a1829%22 width=%221%22 height=%221%22/></svg>'">
           <div class="member-tag">${this._escHtml(item.member)}</div>
+          ${item.type === "image" ? `<button class="dl-btn" data-index="${idx}" title="保存">&#8615;</button>` : ""}
         </div>
       `;
     }).join("");
 
     grid.querySelectorAll(".gallery-item").forEach(el => {
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        if (e.target.classList.contains("dl-btn")) return;
         const idx = parseInt(el.dataset.index);
         this.openLightbox(idx);
+      });
+    });
+
+    // 個別ダウンロードボタン
+    grid.querySelectorAll(".dl-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.index);
+        const item = this._currentItems[idx];
+        if (!item) return;
+        btn.textContent = "...";
+        const blob = await Scraper.downloadImage(item.url);
+        if (blob) {
+          const ext = item.url.match(/\.(jpe?g|png|gif|webp)/i)?.[0] || ".jpg";
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${item.member}_${Date.now()}${ext}`;
+          a.click();
+          URL.revokeObjectURL(url);
+          btn.textContent = "\u2713";
+        } else {
+          // フォールバック: 新しいタブで開く
+          window.open(item.url, "_blank");
+          btn.textContent = "\u2197";
+        }
+        setTimeout(() => { btn.textContent = "\u2193"; }, 2000);
       });
     });
   },
@@ -75,10 +104,31 @@ const Gallery = {
       return;
     }
 
-    img.src = item.thumbUrl;
+    img.src = item.url; // ライトボックスではフルサイズURL
+    img.onerror = () => { img.src = item.thumbUrl; }; // フォールバック
     memberEl.textContent = `${item.member} - ${item.title}`;
-    dlBtn.href = item.url;
-    dlBtn.download = `${item.member}_${Date.now()}.jpg`;
+
+    // ダウンロードボタン
+    dlBtn.onclick = async (e) => {
+      e.preventDefault();
+      dlBtn.textContent = "保存中...";
+      const blob = await Scraper.downloadImage(item.url);
+      if (blob) {
+        const ext = item.url.match(/\.(jpe?g|png|gif|webp)/i)?.[0] || ".jpg";
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `${item.member}_${Date.now()}${ext}`;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+        dlBtn.textContent = "保存完了";
+      } else {
+        window.open(item.url, "_blank");
+        dlBtn.textContent = "新タブで開く";
+      }
+      setTimeout(() => { dlBtn.textContent = "保存"; }, 2000);
+    };
+    dlBtn.textContent = "保存";
 
     lb.style.display = "flex";
   },
@@ -172,7 +222,7 @@ const Gallery = {
     const url = URL.createObjectURL(content);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nogizaka46_${new Date().toISOString().slice(0, 10)}.zip`;
+    a.download = `sakamichi_${new Date().toISOString().slice(0, 10)}.zip`;
     a.click();
     URL.revokeObjectURL(url);
     return done;
