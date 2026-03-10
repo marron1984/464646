@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>乃木坂46 推しメディアコレクター</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ヘッダー -->
+    <header class="header">
+      <h1>乃木坂46 推しメディアコレクター</h1>
+      <p class="subtitle">推しの画像・動画をブラウザだけで収集</p>
+    </header>
+
+    <!-- タブ -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="oshi">推し設定</button>
+      <button class="tab" data-tab="collect">収集</button>
+      <button class="tab" data-tab="gallery">ギャラリー</button>
+      <button class="tab" data-tab="settings">設定</button>
+    </nav>
+
+    <!-- ===== 推し設定タブ ===== -->
+    <section id="tab-oshi" class="tab-content active">
+      <div class="card">
+        <h2>あなたの推しメンバー</h2>
+        <p class="hint">クリックで追加・削除 / ドラッグで順番変更（上ほど優先）</p>
+        <div id="oshi-list" class="oshi-list"></div>
+        <div id="no-oshi" class="empty-state">
+          まだ推しが設定されていません<br>下のメンバー一覧から選んでください
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>メンバー一覧</h2>
+        <input type="text" id="member-search" placeholder="名前で検索..." class="search-input">
+        <div class="gen-filters">
+          <button class="gen-btn active" data-gen="all">全員</button>
+          <button class="gen-btn" data-gen="3">3期生</button>
+          <button class="gen-btn" data-gen="4">4期生</button>
+          <button class="gen-btn" data-gen="5">5期生</button>
+        </div>
+        <div id="member-grid" class="member-grid"></div>
+      </div>
+
+      <div class="card">
+        <h2>推し収集設定</h2>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="collect-non-oshi" checked>
+            推し以外のメンバーも収集する
+          </label>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="oshi-youtube" checked>
+            推しのYouTube動画も自動検索する
+          </label>
+        </div>
+        <button id="save-oshi-settings" class="btn btn-primary">設定を保存</button>
+      </div>
+    </section>
+
+    <!-- ===== 収集タブ ===== -->
+    <section id="tab-collect" class="tab-content">
+      <!-- 推しクイックビュー -->
+      <div class="card" id="oshi-quick">
+        <h2>推しメンバー</h2>
+        <div id="oshi-quick-list" class="oshi-quick-list"></div>
+      </div>
+
+      <!-- モード選択 -->
+      <div class="card">
+        <h2>収集モード</h2>
+        <div class="mode-buttons">
+          <button class="mode-btn selected" data-mode="blog">
+            <span class="mode-icon">&#128247;</span>
+            <span class="mode-label">ブログ画像</span>
+          </button>
+          <button class="mode-btn" data-mode="youtube">
+            <span class="mode-icon">&#127909;</span>
+            <span class="mode-label">YouTube</span>
+          </button>
+          <button class="mode-btn" data-mode="all">
+            <span class="mode-icon">&#11088;</span>
+            <span class="mode-label">まとめて</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="start-collect" class="btn btn-accent btn-large">
+        収集開始
+      </button>
+
+      <!-- 進捗 -->
+      <div class="card" id="progress-card" style="display:none">
+        <h2>進捗</h2>
+        <div class="progress-bar-wrap">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div id="progress-log" class="progress-log"></div>
+      </div>
+
+      <!-- 結果プレビュー -->
+      <div id="result-preview" class="card" style="display:none">
+        <h2>収集結果</h2>
+        <div id="result-stats" class="result-stats"></div>
+        <div id="result-grid" class="result-grid"></div>
+        <button id="download-all" class="btn btn-primary" style="margin-top:12px">
+          一括ダウンロード (ZIP)
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== ギャラリータブ ===== -->
+    <section id="tab-gallery" class="tab-content">
+      <div class="card">
+        <div class="gallery-toolbar">
+          <select id="gallery-filter" class="input-select">
+            <option value="all">全メンバー</option>
+            <option value="oshi">推しのみ</option>
+          </select>
+          <select id="gallery-type" class="input-select">
+            <option value="all">画像+動画</option>
+            <option value="image">画像のみ</option>
+            <option value="video">動画のみ</option>
+          </select>
+          <button id="clear-gallery" class="btn btn-small btn-danger">全削除</button>
+        </div>
+      </div>
+      <div id="gallery-grid" class="gallery-grid"></div>
+      <div id="gallery-empty" class="empty-state">
+        まだ収集したメディアがありません<br>「収集」タブから始めてください
+      </div>
+    </section>
+
+    <!-- ===== 設定タブ ===== -->
+    <section id="tab-settings" class="tab-content">
+      <div class="card">
+        <h2>YouTube API キー</h2>
+        <p class="hint">YouTube動画検索にはAPIキーが必要です（<a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>で取得）</p>
+        <input type="text" id="yt-api-key" placeholder="AIza..." class="input-text">
+      </div>
+      <div class="card">
+        <h2>CORS プロキシ</h2>
+        <p class="hint">ブログ画像取得にプロキシが必要な場合に設定</p>
+        <input type="text" id="cors-proxy" placeholder="https://corsproxy.io/?" class="input-text" value="https://corsproxy.io/?">
+      </div>
+      <div class="card">
+        <h2>データ管理</h2>
+        <button id="export-data" class="btn btn-primary">設定・データをエクスポート</button>
+        <label class="btn btn-primary" style="margin-left:8px;cursor:pointer">
+          インポート
+          <input type="file" id="import-data" accept=".json" style="display:none">
+        </label>
+      </div>
+      <button id="save-settings" class="btn btn-primary" style="margin-top:12px">設定を保存</button>
+    </section>
+
+    <!-- ライトボックス -->
+    <div id="lightbox" class="lightbox" style="display:none">
+      <button class="lb-close">&times;</button>
+      <button class="lb-prev">&#10094;</button>
+      <button class="lb-next">&#10095;</button>
+      <div class="lb-content">
+        <img id="lb-img" src="" alt="">
+      </div>
+      <div class="lb-info">
+        <span id="lb-member"></span>
+        <a id="lb-download" class="btn btn-small btn-primary" download>保存</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/members.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/scraper.js"></script>
+  <script src="js/gallery.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

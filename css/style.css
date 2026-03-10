@@ -1,0 +1,309 @@
+/* ===== 乃木坂46 推しメディアコレクター ===== */
+
+:root {
+  --primary: #7b2d8e;
+  --primary-light: #a855c7;
+  --primary-dark: #5a1d6b;
+  --accent: #e84393;
+  --accent-light: #fd79a8;
+  --bg: #0f0e17;
+  --bg-card: #1a1829;
+  --bg-hover: #231f38;
+  --text: #fffffe;
+  --text-sub: #a7a9be;
+  --border: #2e2b45;
+  --success: #00b894;
+  --danger: #d63031;
+  --warning: #fdcb6e;
+  --oshi-glow: rgba(232, 67, 147, 0.3);
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+a { color: var(--accent-light); }
+
+#app { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+/* --- Header --- */
+.header {
+  text-align: center;
+  padding: 28px 16px 20px;
+  background: linear-gradient(135deg, var(--primary-dark), var(--accent));
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+.header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.04em; }
+.subtitle { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 4px; }
+
+/* --- Tabs --- */
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  background: var(--bg-card); border-radius: var(--radius); padding: 4px;
+}
+.tab {
+  flex: 1; padding: 9px 4px; border: none; background: transparent;
+  color: var(--text-sub); font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s;
+}
+.tab.active { background: var(--primary); color: var(--text); }
+.tab:hover:not(.active) { background: var(--bg-hover); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* --- Card --- */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; margin-bottom: 14px;
+}
+.card h2 { font-size: 1.05rem; margin-bottom: 10px; }
+
+/* --- Oshi List --- */
+.oshi-list { display: flex; flex-direction: column; gap: 6px; }
+.oshi-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(232,67,147,0.12), rgba(123,45,142,0.12));
+  border: 1px solid var(--accent-light); border-radius: var(--radius-sm);
+  cursor: grab; transition: transform 0.15s, box-shadow 0.15s;
+}
+.oshi-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px var(--oshi-glow);
+}
+.oshi-item.dragging { opacity: 0.4; }
+.oshi-rank {
+  font-size: 1.3rem; font-weight: 700; color: var(--accent);
+  min-width: 26px; text-align: center;
+}
+.oshi-name { flex: 1; font-weight: 600; font-size: 0.95rem; }
+.oshi-gen {
+  font-size: 0.7rem; color: var(--text-sub);
+  background: var(--border); padding: 2px 8px; border-radius: 99px;
+}
+.oshi-remove {
+  background: none; border: none; color: var(--text-sub);
+  cursor: pointer; font-size: 1.1rem; padding: 2px 4px; line-height: 1;
+}
+.oshi-remove:hover { color: var(--accent); }
+
+.empty-state {
+  text-align: center; color: var(--text-sub);
+  padding: 20px; font-size: 0.85rem; line-height: 1.8;
+}
+
+/* --- Member Grid --- */
+.search-input {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-size: 0.85rem; margin-bottom: 10px; outline: none;
+}
+.search-input:focus { border-color: var(--primary-light); }
+
+.gen-filters { display: flex; gap: 6px; margin-bottom: 10px; }
+.gen-btn {
+  padding: 5px 12px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-sub);
+  border-radius: 99px; font-size: 0.75rem; cursor: pointer; transition: all 0.15s;
+}
+.gen-btn.active { background: var(--primary); border-color: var(--primary); color: var(--text); }
+
+.member-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px;
+}
+.member-card {
+  padding: 10px 6px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); text-align: center;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.member-card:hover { border-color: var(--primary-light); background: var(--bg-hover); }
+.member-card.is-oshi { border-color: var(--accent); background: rgba(232,67,147,0.1); }
+.member-card .name { font-weight: 600; font-size: 0.85rem; }
+.member-card .kana { font-size: 0.65rem; color: var(--text-sub); margin-top: 1px; }
+.member-card .oshi-badge {
+  position: absolute; top: 4px; right: 6px;
+  font-size: 0.65rem; color: var(--accent);
+}
+
+/* --- Oshi Quick View --- */
+.oshi-quick-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.oshi-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+  border-radius: 99px; font-size: 0.8rem; font-weight: 600;
+}
+.oshi-chip .rank { opacity: 0.7; font-size: 0.7rem; }
+
+/* --- Mode Buttons --- */
+.mode-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mode-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 14px 6px; border: 2px solid var(--border); background: var(--bg);
+  border-radius: var(--radius); color: var(--text); cursor: pointer; transition: all 0.2s;
+}
+.mode-btn:hover { border-color: var(--primary-light); }
+.mode-btn.selected { border-color: var(--accent); background: rgba(232,67,147,0.1); }
+.mode-icon { font-size: 1.4rem; }
+.mode-label { font-weight: 600; font-size: 0.8rem; }
+
+/* --- Progress --- */
+.progress-bar-wrap {
+  width: 100%; height: 5px; background: var(--border);
+  border-radius: 3px; margin-bottom: 10px; overflow: hidden;
+}
+.progress-bar {
+  height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 3px; width: 0; transition: width 0.3s;
+}
+.progress-log {
+  max-height: 250px; overflow-y: auto;
+  font-size: 0.75rem; color: var(--text-sub); line-height: 1.8;
+}
+.progress-log .oshi { color: var(--accent-light); font-weight: 600; }
+.progress-log .done { color: var(--success); font-weight: 600; }
+.progress-log .err { color: var(--warning); }
+
+/* --- Result Preview --- */
+.result-stats {
+  font-size: 0.85rem; color: var(--text-sub);
+  padding: 8px 0; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+}
+.result-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 6px; max-height: 400px; overflow-y: auto;
+}
+.result-thumb {
+  aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden;
+  cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s;
+}
+.result-thumb:hover { border-color: var(--accent); }
+.result-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.result-thumb.video { position: relative; }
+.result-thumb.video::after {
+  content: "\25B6"; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; background: rgba(0,0,0,0.4); color: #fff;
+}
+
+/* --- Gallery --- */
+.gallery-toolbar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.gallery-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px; margin-top: 14px;
+}
+.gallery-item {
+  position: relative; aspect-ratio: 1; border-radius: var(--radius-sm);
+  overflow: hidden; cursor: pointer; border: 2px solid transparent;
+  transition: all 0.15s;
+}
+.gallery-item:hover { border-color: var(--accent); transform: scale(1.02); }
+.gallery-item.is-oshi-item { border-color: rgba(232,67,147,0.4); }
+.gallery-item img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.gallery-item .member-tag {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 4px 8px; font-size: 0.65rem; font-weight: 600;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  color: #fff; text-align: center;
+}
+.gallery-item.video::after {
+  content: "\25B6"; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem; color: rgba(255,255,255,0.9);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* --- Lightbox --- */
+.lightbox {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.95);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.lb-close {
+  position: absolute; top: 12px; right: 16px;
+  background: none; border: none; color: #fff;
+  font-size: 2rem; cursor: pointer; z-index: 10;
+}
+.lb-prev, .lb-next {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: rgba(255,255,255,0.1); border: none; color: #fff;
+  font-size: 1.4rem; padding: 16px 12px; cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.lb-prev { left: 12px; }
+.lb-next { right: 12px; }
+.lb-content { max-width: 90vw; max-height: 80vh; }
+.lb-content img { max-width: 100%; max-height: 80vh; border-radius: var(--radius-sm); }
+.lb-info {
+  margin-top: 12px; display: flex; align-items: center; gap: 12px;
+  color: var(--text-sub); font-size: 0.85rem;
+}
+
+/* --- Forms --- */
+.form-group { margin-bottom: 12px; }
+.form-group label {
+  display: block; font-size: 0.82rem; color: var(--text-sub); margin-bottom: 3px;
+}
+.input-text, .input-select {
+  padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 0.85rem; outline: none;
+}
+.input-text { width: 100%; }
+.input-select { min-width: 120px; }
+.input-text:focus, .input-select:focus { border-color: var(--primary-light); }
+.hint { font-size: 0.72rem; color: var(--text-sub); margin-top: 2px; }
+
+/* --- Buttons --- */
+.btn {
+  padding: 9px 20px; border: none; border-radius: var(--radius-sm);
+  font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  display: inline-block; text-decoration: none;
+}
+.btn-primary { background: var(--primary); color: var(--text); }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-accent {
+  background: linear-gradient(135deg, var(--accent), var(--primary)); color: var(--text);
+}
+.btn-accent:hover { transform: translateY(-1px); box-shadow: 0 4px 14px var(--oshi-glow); }
+.btn-danger { background: var(--danger); color: var(--text); }
+.btn-large { width: 100%; padding: 13px; font-size: 1rem; margin-bottom: 14px; }
+.btn-small { padding: 5px 12px; font-size: 0.75rem; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* --- Toast --- */
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--success); color: #fff; padding: 8px 20px;
+  border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;
+  z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media (max-width: 600px) {
+  .mode-buttons { grid-template-columns: 1fr; }
+  .member-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .header h1 { font-size: 1.2rem; }
+  .gallery-toolbar { flex-direction: column; align-items: stretch; }
+}
