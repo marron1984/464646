@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "nogizaka-scraper"
+version = "1.0.0"
+description = "乃木坂46メディアスクレイパー - 画像・動画自動収集ツール"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "pyyaml>=6.0",
+    "yt-dlp>=2024.1.0",
+]
+
+[project.scripts]
+nogizaka-scraper = "nogizaka_scraper.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+]

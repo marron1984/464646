@@ -1,0 +1,29 @@
+# Downloads
+downloads/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Config with secrets
+nogizaka_scraper.yml
+
+# OS
+.DS_Store
+Thumbs.db
