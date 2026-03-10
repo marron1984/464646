@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>乃木坂46 推しメディアコレクター</title>
+  <title>坂道グループ 推しメディアコレクター</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="app">
     <!-- ヘッダー -->
     <header class="header">
-      <h1>乃木坂46 推しメディアコレクター</h1>
-      <p class="subtitle">推しの画像・動画をブラウザだけで収集</p>
+      <h1>坂道グループ 推しメディアコレクター</h1>
+      <p class="subtitle">乃木坂46 / 日向坂46 / 櫻坂46 - 推しの画像・動画をブラウザだけで収集</p>
     </header>
 
     <!-- タブ -->
@@ -36,11 +36,14 @@
       <div class="card">
         <h2>メンバー一覧</h2>
         <input type="text" id="member-search" placeholder="名前で検索..." class="search-input">
-        <div class="gen-filters">
-          <button class="gen-btn active" data-gen="all">全員</button>
-          <button class="gen-btn" data-gen="3">3期生</button>
-          <button class="gen-btn" data-gen="4">4期生</button>
-          <button class="gen-btn" data-gen="5">5期生</button>
+        <div class="group-filters" id="group-filters">
+          <button class="group-btn active" data-group="all">全グループ</button>
+          <button class="group-btn nogi" data-group="nogizaka">乃木坂46</button>
+          <button class="group-btn hinata" data-group="hinatazaka">日向坂46</button>
+          <button class="group-btn sakura" data-group="sakurazaka">櫻坂46</button>
+        </div>
+        <div class="gen-filters" id="gen-filters">
+          <!-- 動的に生成 -->
         </div>
         <div id="member-grid" class="member-grid"></div>
       </div>
@@ -121,6 +124,9 @@
           <select id="gallery-filter" class="input-select">
             <option value="all">全メンバー</option>
             <option value="oshi">推しのみ</option>
+            <option value="nogizaka">乃木坂46</option>
+            <option value="hinatazaka">日向坂46</option>
+            <option value="sakurazaka">櫻坂46</option>
           </select>
           <select id="gallery-type" class="input-select">
             <option value="all">画像+動画</option>

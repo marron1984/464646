@@ -38,7 +38,7 @@ a { color: var(--accent-light); }
 .header {
   text-align: center;
   padding: 28px 16px 20px;
-  background: linear-gradient(135deg, var(--primary-dark), var(--accent));
+  background: linear-gradient(135deg, #5a1d6b, #2a8bb5, #c76e8a);
   border-radius: var(--radius);
   margin-bottom: 20px;
 }
@@ -110,6 +110,21 @@ a { color: var(--accent-light); }
 }
 .search-input:focus { border-color: var(--primary-light); }
 
+/* Group filters */
+.group-filters { display: flex; gap: 6px; margin-bottom: 8px; }
+.group-btn {
+  padding: 6px 14px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-sub);
+  border-radius: 99px; font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.group-btn.active { color: var(--text); }
+.group-btn.active.nogi { background: #7b2d8e; border-color: #7b2d8e; }
+.group-btn.active.hinata { background: #2a8bb5; border-color: #2a8bb5; }
+.group-btn.active.sakura { background: #c76e8a; border-color: #c76e8a; }
+.group-btn.active[data-group="all"] { background: var(--primary); border-color: var(--primary); }
+.group-btn:hover:not(.active) { border-color: var(--text-sub); }
+
 .gen-filters { display: flex; gap: 6px; margin-bottom: 10px; }
 .gen-btn {
   padding: 5px 12px; border: 1px solid var(--border);
@@ -117,6 +132,15 @@ a { color: var(--accent-light); }
   border-radius: 99px; font-size: 0.75rem; cursor: pointer; transition: all 0.15s;
 }
 .gen-btn.active { background: var(--primary); border-color: var(--primary); color: var(--text); }
+
+/* Group badge on member cards */
+.member-card .group-tag {
+  font-size: 0.6rem; padding: 1px 6px; border-radius: 99px;
+  color: #fff; display: inline-block; margin-top: 3px;
+}
+.group-tag.nogi { background: #7b2d8e; }
+.group-tag.hinata { background: #2a8bb5; }
+.group-tag.sakura { background: #c76e8a; }
 
 .member-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px;

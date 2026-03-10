@@ -18,6 +18,7 @@ document.querySelectorAll(".tab").forEach(tab => {
 
 // ===== 推し設定 =====
 let currentGen = "all";
+let currentGroup = "all";
 
 function renderOshiList() {
   const oshi = Store.getOshi();
@@ -33,12 +34,13 @@ function renderOshiList() {
 
   list.innerHTML = oshi.members.map((name, i) => {
     const m = MEMBERS.find(x => x.name === name);
-    const gen = m ? `${m.gen}期` : "";
+    const groupLabel = m ? getGroupName(m.group) : "";
+    const genLabel = m ? `${m.gen}期` : "";
     return `
       <div class="oshi-item" draggable="true" data-name="${name}" data-index="${i}">
         <span class="oshi-rank">${i + 1}</span>
         <span class="oshi-name">${name}</span>
-        ${gen ? `<span class="oshi-gen">${gen}</span>` : ""}
+        ${groupLabel ? `<span class="oshi-gen">${groupLabel} ${genLabel}</span>` : ""}
         <button class="oshi-remove" data-name="${name}">&times;</button>
       </div>
     `;
@@ -79,18 +81,23 @@ function renderOshiList() {
 
 function renderMemberGrid() {
   const query = document.getElementById("member-search").value;
-  const members = searchMembers(query, currentGen);
+  const members = searchMembers(query, currentGen, currentGroup);
   const oshi = Store.getOshi();
   const grid = document.getElementById("member-grid");
+
+  const groupClassMap = { nogizaka: "nogi", hinatazaka: "hinata", sakurazaka: "sakura" };
 
   grid.innerHTML = members.map(m => {
     const isOshi = oshi.members.includes(m.name);
     const rank = oshi.members.indexOf(m.name);
+    const gc = groupClassMap[m.group] || "";
+    const showGroupTag = currentGroup === "all";
     return `
       <div class="member-card ${isOshi ? "is-oshi" : ""}" data-name="${m.name}">
         ${isOshi ? `<span class="oshi-badge">&#11088; ${rank + 1}</span>` : ""}
         <div class="name">${m.name}</div>
         <div class="kana">${m.kana}</div>
+        ${showGroupTag ? `<span class="group-tag ${gc}">${getGroupName(m.group).replace("46","")}</span>` : ""}
       </div>
     `;
   }).join("");
@@ -109,15 +116,32 @@ function renderMemberGrid() {
   });
 }
 
-// 世代フィルタ
-document.querySelectorAll(".gen-btn").forEach(btn => {
+// グループフィルタ
+document.querySelectorAll(".group-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".gen-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".group-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
-    currentGen = btn.dataset.gen;
+    currentGroup = btn.dataset.group;
+    currentGen = "all";
+    updateGenButtons();
     renderMemberGrid();
   });
 });
+
+function updateGenButtons() {
+  const gens = getGenerations(currentGroup);
+  const container = document.getElementById("gen-filters");
+  container.innerHTML = `<button class="gen-btn active" data-gen="all">全期</button>` +
+    gens.map(g => `<button class="gen-btn" data-gen="${g}">${g}期生</button>`).join("");
+  container.querySelectorAll(".gen-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      container.querySelectorAll(".gen-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentGen = btn.dataset.gen;
+      renderMemberGrid();
+    });
+  });
+}
 
 // メンバー検索
 let searchTimer;
@@ -330,7 +354,7 @@ document.getElementById("export-data").addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `nogizaka_scraper_backup_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `sakamichi_backup_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
   toast("データをエクスポートしました");
@@ -368,6 +392,7 @@ function toast(message) {
 
 // ===== 初期化 =====
 function init() {
+  updateGenButtons();
   renderOshiList();
   renderMemberGrid();
   loadOshiForm();

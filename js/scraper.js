@@ -81,7 +81,8 @@ const Scraper = {
       const isOshi = Store.isOshi(member.name);
 
       const maxResults = isOshi ? 10 : 3;
-      const query = `乃木坂46 ${member.name}`;
+      const groupName = getGroupName(member.group || "nogizaka");
+      const query = `${groupName} ${member.name}`;
 
       onProgress({
         type: isOshi ? "oshi" : "normal",

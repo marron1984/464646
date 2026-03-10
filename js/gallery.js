@@ -12,6 +12,9 @@ const Gallery = {
 
     if (filterMember === "oshi") {
       items = items.filter(i => oshiMembers.includes(i.member));
+    } else if (["nogizaka", "hinatazaka", "sakurazaka"].includes(filterMember)) {
+      const groupMembers = MEMBERS.filter(m => m.group === filterMember).map(m => m.name);
+      items = items.filter(i => groupMembers.includes(i.member));
     }
     if (filterType === "image") {
       items = items.filter(i => i.type === "image");
