@@ -2,6 +2,18 @@
  * ギャラリー表示 & ライトボックス
  */
 
+// 検索リンクのアイコン
+const LINK_ICONS = {
+  google: "&#128269;",
+  pinterest: "&#128204;",
+  x: "&#120143;",
+  matome: "&#128240;",
+  bing: "&#128270;",
+  blog: "&#128221;",
+  yt: "&#9654;",
+  default: "&#128279;",
+};
+
 const Gallery = {
   _currentItems: [],
   _currentIndex: 0,
@@ -20,6 +32,8 @@ const Gallery = {
       items = items.filter(i => i.type === "image");
     } else if (filterType === "video") {
       items = items.filter(i => i.type === "video");
+    } else if (filterType === "link") {
+      items = items.filter(i => i.type === "link");
     }
 
     this._currentItems = items;
@@ -36,6 +50,11 @@ const Gallery = {
 
     grid.innerHTML = items.map((item, idx) => {
       const isOshi = oshiMembers.includes(item.member);
+
+      if (item.type === "link") {
+        return this._renderLinkCard(item, idx, isOshi);
+      }
+
       const cls = [
         "gallery-item",
         item.type === "video" ? "video" : "",
@@ -52,6 +71,7 @@ const Gallery = {
       `;
     }).join("");
 
+    // イベント
     grid.querySelectorAll(".gallery-item").forEach(el => {
       el.addEventListener("click", (e) => {
         if (e.target.classList.contains("dl-btn")) return;
@@ -60,7 +80,13 @@ const Gallery = {
       });
     });
 
-    // 個別ダウンロードボタン
+    grid.querySelectorAll(".link-card").forEach(el => {
+      el.addEventListener("click", () => {
+        const url = el.dataset.url;
+        if (url) window.open(url, "_blank", "noopener");
+      });
+    });
+
     grid.querySelectorAll(".dl-btn").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -79,13 +105,24 @@ const Gallery = {
           URL.revokeObjectURL(url);
           btn.textContent = "\u2713";
         } else {
-          // フォールバック: 新しいタブで開く
           window.open(item.url, "_blank");
           btn.textContent = "\u2197";
         }
         setTimeout(() => { btn.textContent = "\u2193"; }, 2000);
       });
     });
+  },
+
+  _renderLinkCard(item, idx, isOshi) {
+    const icon = LINK_ICONS[item.linkIcon] || LINK_ICONS.default;
+    const cls = ["link-card", isOshi ? "is-oshi-item" : ""].filter(Boolean).join(" ");
+    return `
+      <div class="${cls}" data-index="${idx}" data-url="${this._escHtml(item.url)}">
+        <div class="link-icon">${icon}</div>
+        <div class="link-title">${this._escHtml(item.title)}</div>
+        <div class="link-member">${this._escHtml(item.member)}</div>
+      </div>
+    `;
   },
 
   openLightbox(index) {
@@ -98,17 +135,15 @@ const Gallery = {
     const memberEl = document.getElementById("lb-member");
     const dlBtn = document.getElementById("lb-download");
 
-    if (item.type === "video") {
-      // 動画はYouTubeリンクを開く
+    if (item.type === "video" || item.type === "link") {
       window.open(item.url, "_blank");
       return;
     }
 
-    img.src = item.url; // ライトボックスではフルサイズURL
-    img.onerror = () => { img.src = item.thumbUrl; }; // フォールバック
+    img.src = item.url;
+    img.onerror = () => { img.src = item.thumbUrl; };
     memberEl.textContent = `${item.member} - ${item.title}`;
 
-    // ダウンロードボタン
     dlBtn.onclick = async (e) => {
       e.preventDefault();
       dlBtn.textContent = "保存中...";
@@ -138,8 +173,6 @@ const Gallery = {
   },
 
   navigate(direction) {
-    let newIndex = this._currentIndex + direction;
-    // 画像のみナビゲート
     const imageItems = this._currentItems
       .map((item, i) => ({ ...item, _idx: i }))
       .filter(i => i.type === "image");
@@ -160,14 +193,21 @@ const Gallery = {
     return d.innerHTML;
   },
 
-  /**
-   * 収集結果をプレビューグリッドに表示
-   */
   renderPreview(items, containerId) {
     const grid = document.getElementById(containerId);
     if (!grid) return;
 
-    grid.innerHTML = items.slice(0, 50).map((item, idx) => {
+    grid.innerHTML = items.slice(0, 60).map((item) => {
+      if (item.type === "link") {
+        const icon = LINK_ICONS[item.linkIcon] || LINK_ICONS.default;
+        return `
+          <div class="result-link" title="${this._escHtml(item.title)}"
+               onclick="window.open('${this._escHtml(item.url)}','_blank')">
+            <span class="result-link-icon">${icon}</span>
+            <span class="result-link-label">${this._escHtml(item.title)}</span>
+          </div>
+        `;
+      }
       const cls = item.type === "video" ? "result-thumb video" : "result-thumb";
       return `
         <div class="${cls}" title="${this._escHtml(item.title)}">
@@ -178,11 +218,7 @@ const Gallery = {
     }).join("");
   },
 
-  /**
-   * ZIP一括ダウンロード（画像をfetchしてblob化）
-   */
   async downloadAllAsZip(items, onProgress) {
-    // 動的にJSZipを読み込み
     if (!window.JSZip) {
       const script = document.createElement("script");
       script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
@@ -199,13 +235,8 @@ const Gallery = {
 
     for (const item of imageItems) {
       try {
-        const settings = Store.getSettings();
-        const proxy = settings.corsProxy || "";
-        const fetchUrl = proxy ? `${proxy}${encodeURIComponent(item.url)}` : item.url;
-
-        const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(10000) });
-        if (!res.ok) continue;
-        const blob = await res.blob();
+        const blob = await Scraper.downloadImage(item.url);
+        if (!blob) continue;
         const ext = item.url.match(/\.(jpe?g|png|gif|webp)/i)?.[0] || ".jpg";
         const filename = `${item.member}/${done + 1}${ext}`;
         zip.file(filename, blob);

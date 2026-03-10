@@ -1,15 +1,11 @@
 /**
  * マルチソース画像・動画スクレイパー
  *
- * ソース:
- *  1. Google Custom Search API (画像検索)
- *  2. 公式ブログ (CORSプロキシ経由)
- *  3. ファンサイト・まとめサイト (CORSプロキシ経由)
- *  4. Pinterest (CORSプロキシ経由)
- *  5. YouTube Data API
+ * 方式:
+ *  - 検索リンク生成（即座・確実）: Google画像検索 / Pinterest / まとめサイト / 公式ブログ
+ *  - API取得（設定要）: Google Custom Search API / YouTube Data API
  */
 
-// CORSプロキシのフォールバックリスト
 const CORS_PROXIES = [
   "https://corsproxy.io/?",
   "https://api.allorigins.win/raw?url=",
@@ -18,69 +14,51 @@ const CORS_PROXIES = [
 
 const Scraper = {
   _aborted: false,
-
   abort() { this._aborted = true; },
 
   // ============================
-  // メイン: 全ソースから画像収集
+  // メイン: 検索リンク生成 + API取得
   // ============================
   async scrapeImages(memberList, sources, onProgress) {
     this._aborted = false;
     const collected = [];
-    const totalSteps = memberList.length * sources.length;
     let step = 0;
+    const totalSteps = memberList.length;
 
     for (const member of memberList) {
       if (this._aborted) break;
+      step++;
       const isOshi = Store.isOshi(member.name);
       const groupName = getGroupName(member.group || "nogizaka");
       const tag = isOshi ? "oshi" : "normal";
+      const progress = (step / totalSteps) * 100;
 
-      for (const source of sources) {
-        if (this._aborted) break;
-        step++;
-        const progress = (step / totalSteps) * 100;
+      onProgress({ type: tag, message: `${isOshi ? "★推し " : ""}${member.name} のリンクを生成中...`, progress });
 
-        let items = [];
-        try {
-          switch (source) {
-            case "google":
-              onProgress({ type: tag, message: `${isOshi ? "★推し " : ""}Google画像検索: ${member.name}`, progress });
-              items = await this._googleImageSearch(member.name, groupName, isOshi);
-              break;
-            case "blog":
-              onProgress({ type: tag, message: `${isOshi ? "★推し " : ""}公式ブログ: ${member.name}`, progress });
-              items = await this._scrapeBlog(member);
-              break;
-            case "fansite":
-              onProgress({ type: tag, message: `${isOshi ? "★推し " : ""}まとめサイト: ${member.name}`, progress });
-              items = await this._scrapeFanSites(member.name, groupName);
-              break;
-            case "pinterest":
-              onProgress({ type: tag, message: `${isOshi ? "★推し " : ""}Pinterest: ${member.name}`, progress });
-              items = await this._scrapePinterest(member.name, groupName);
-              break;
-          }
-        } catch (e) {
-          console.warn(`${source} failed for ${member.name}:`, e.message);
-        }
-
-        // メンバー情報を付与
-        items = items.map(item => ({
-          ...item,
-          member: member.name,
-          group: member.group,
-          source,
-        }));
-
-        collected.push(...items);
-
-        if (items.length > 0) {
-          onProgress({ type: tag, message: `  → ${items.length}件取得 (${source})`, progress });
-        }
-
-        await this._sleep(800);
+      // --- 検索リンク生成（即座） ---
+      if (sources.includes("google")) {
+        collected.push(...this._googleSearchLinks(member.name, groupName));
       }
+      if (sources.includes("pinterest")) {
+        collected.push(...this._pinterestSearchLinks(member.name, groupName));
+      }
+      if (sources.includes("fansite")) {
+        collected.push(...this._fansiteSearchLinks(member.name, groupName));
+      }
+      if (sources.includes("blog")) {
+        collected.push(this._blogLink(member));
+      }
+
+      // --- Google Custom Search API（設定済みの場合） ---
+      if (sources.includes("google")) {
+        const apiItems = await this._googleApiSearch(member.name, groupName, isOshi);
+        collected.push(...apiItems);
+        if (apiItems.length > 0) {
+          onProgress({ type: tag, message: `  → API: ${apiItems.length}枚取得`, progress });
+        }
+      }
+
+      onProgress({ type: tag, message: `  → ${member.name} 完了`, progress });
     }
 
     return collected;
@@ -96,7 +74,22 @@ const Scraper = {
     const collected = [];
 
     if (!apiKey) {
-      onProgress({ type: "err", message: "YouTube APIキーが未設定です（設定タブで入力）", progress: 100 });
+      // APIキーなし → YouTube検索リンクを生成
+      for (const member of memberList) {
+        const groupName = getGroupName(member.group || "nogizaka");
+        const q = `${groupName} ${member.name}`;
+        collected.push({
+          url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`,
+          member: member.name,
+          type: "link",
+          thumbUrl: "",
+          title: `${member.name} - YouTube検索`,
+          source: "youtube",
+          linkIcon: "yt",
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
+      onProgress({ type: "normal", message: "YouTube APIキー未設定 → 検索リンクを生成", progress: 100 });
       return collected;
     }
 
@@ -118,7 +111,6 @@ const Scraper = {
       const items = videos.map(v => ({
         url: `https://www.youtube.com/watch?v=${v.id}`,
         member: member.name,
-        group: member.group,
         type: "video",
         thumbUrl: v.thumbnail,
         title: v.title,
@@ -139,31 +131,94 @@ const Scraper = {
   },
 
   // ============================
-  // 1. Google Custom Search API (画像)
+  // 検索リンク生成（即座・CORS不要）
   // ============================
-  async _googleImageSearch(memberName, groupName, isOshi) {
+
+  _googleSearchLinks(memberName, groupName) {
+    const queries = [
+      `${groupName} ${memberName} 高画質`,
+      `${memberName} グラビア 写真`,
+      `${memberName} 画像`,
+    ];
+    return queries.map(q => ({
+      url: `https://www.google.com/search?q=${encodeURIComponent(q)}&tbm=isch`,
+      member: memberName,
+      type: "link",
+      thumbUrl: "",
+      title: `Google画像: ${q}`,
+      source: "google",
+      linkIcon: "google",
+      date: new Date().toISOString().slice(0, 10),
+    }));
+  },
+
+  _pinterestSearchLinks(memberName, groupName) {
+    const queries = [
+      `${groupName} ${memberName}`,
+      `${memberName} 乃木坂 日向坂 櫻坂`,
+    ];
+    return queries.map(q => ({
+      url: `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(q)}`,
+      member: memberName,
+      type: "link",
+      thumbUrl: "",
+      title: `Pinterest: ${q}`,
+      source: "pinterest",
+      linkIcon: "pinterest",
+      date: new Date().toISOString().slice(0, 10),
+    }));
+  },
+
+  _fansiteSearchLinks(memberName, groupName) {
+    const sites = [
+      { name: "Twitter/X", url: `https://x.com/search?q=${encodeURIComponent(groupName + " " + memberName + " filter:images")}&f=image`, icon: "x" },
+      { name: "まとめだね", url: `https://matomedane.jp/search?q=${encodeURIComponent(groupName + " " + memberName)}`, icon: "matome" },
+      { name: "AIKRU", url: `https://aikru.com/search?q=${encodeURIComponent(memberName)}`, icon: "matome" },
+      { name: "Bing画像", url: `https://www.bing.com/images/search?q=${encodeURIComponent(groupName + " " + memberName)}`, icon: "bing" },
+    ];
+    return sites.map(s => ({
+      url: s.url,
+      member: memberName,
+      type: "link",
+      thumbUrl: "",
+      title: `${s.name}: ${memberName}`,
+      source: "fansite",
+      linkIcon: s.icon,
+      date: new Date().toISOString().slice(0, 10),
+    }));
+  },
+
+  _blogLink(member) {
+    const blogUrl = getMemberBlogUrl(member);
+    return {
+      url: blogUrl,
+      member: member.name,
+      type: "link",
+      thumbUrl: "",
+      title: `${member.name} 公式ブログ`,
+      source: "blog",
+      linkIcon: "blog",
+      date: new Date().toISOString().slice(0, 10),
+    };
+  },
+
+  // ============================
+  // Google Custom Search API（任意）
+  // ============================
+  async _googleApiSearch(memberName, groupName, isOshi) {
     const settings = Store.getSettings();
     const apiKey = settings.googleApiKey;
     const cx = settings.googleCx;
-
     if (!apiKey || !cx) return [];
 
-    const queries = [
-      `${groupName} ${memberName}`,
-      `${memberName} グラビア 写真`,
-    ];
-    // 推しは追加クエリ
-    if (isOshi) {
-      queries.push(`${memberName} 高画質`);
-    }
+    const queries = [`${groupName} ${memberName}`];
+    if (isOshi) queries.push(`${memberName} 高画質`);
 
     const allImages = [];
     for (const q of queries) {
       try {
         const params = new URLSearchParams({
-          key: apiKey,
-          cx,
-          q,
+          key: apiKey, cx, q,
           searchType: "image",
           num: "10",
           imgSize: "large",
@@ -176,115 +231,22 @@ const Scraper = {
         if (!res.ok) continue;
         const data = await res.json();
         for (const item of (data.items || [])) {
-          if (this._isValidImage(item.link)) {
-            allImages.push({
-              url: item.link,
-              thumbUrl: item.image?.thumbnailLink || item.link,
-              title: item.title || `${memberName} - Google`,
-              type: "image",
-              date: new Date().toISOString().slice(0, 10),
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Google search error:", e.message);
-      }
-      await this._sleep(300);
-    }
-
-    return this._dedup(allImages);
-  },
-
-  // ============================
-  // 2. 公式ブログ
-  // ============================
-  async _scrapeBlog(member) {
-    const blogUrl = getMemberBlogUrl(member);
-    const html = await this._fetchWithProxy(blogUrl);
-    if (!html) return [];
-
-    const images = this._extractImageUrls(html, blogUrl);
-    return images.map(url => ({
-      url,
-      thumbUrl: url,
-      title: `${member.name} 公式ブログ`,
-      type: "image",
-      date: new Date().toISOString().slice(0, 10),
-    }));
-  },
-
-  // ============================
-  // 3. ファンサイト・まとめサイト
-  // ============================
-  async _scrapeFanSites(memberName, groupName) {
-    const allImages = [];
-
-    // まとめサイトのURL候補を検索クエリで構築
-    const searchTargets = [
-      { url: `https://matomedane.jp/search?q=${encodeURIComponent(groupName + " " + memberName)}`, name: "まとめだね" },
-      { url: `https://aikru.com/search?q=${encodeURIComponent(memberName)}`, name: "AIKRU" },
-    ];
-
-    for (const target of searchTargets) {
-      try {
-        const html = await this._fetchWithProxy(target.url);
-        if (!html) continue;
-        const images = this._extractImageUrls(html, target.url);
-        for (const url of images.slice(0, 20)) {
           allImages.push({
-            url,
-            thumbUrl: url,
-            title: `${memberName} - ${target.name}`,
+            url: item.link,
+            thumbUrl: item.image?.thumbnailLink || item.link,
+            title: item.title || `${memberName} - Google`,
+            member: memberName,
             type: "image",
+            source: "google-api",
             date: new Date().toISOString().slice(0, 10),
           });
         }
       } catch (e) {
-        console.warn(`Fansite ${target.name} failed:`, e.message);
+        console.warn("Google API error:", e.message);
       }
-      await this._sleep(500);
+      await this._sleep(300);
     }
-
-    return this._dedup(allImages);
-  },
-
-  // ============================
-  // 4. Pinterest
-  // ============================
-  async _scrapePinterest(memberName, groupName) {
-    const allImages = [];
-    const query = `${groupName} ${memberName}`;
-    const pinterestUrl = `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(query)}`;
-
-    try {
-      const html = await this._fetchWithProxy(pinterestUrl);
-      if (!html) return [];
-
-      // Pinterest HTML内の画像URLを抽出
-      // Pinterest は JSON-LD やスクリプト内にデータを埋め込む
-      const imgRegex = /https:\/\/i\.pinimg\.com\/[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi;
-      const matches = html.match(imgRegex) || [];
-      const seen = new Set();
-
-      for (const url of matches) {
-        // originals 版に変換（高画質化）
-        const highRes = url.replace(/\/\d+x\d*\//, "/originals/").replace(/\/236x\//, "/originals/").replace(/\/474x\//, "/originals/").replace(/\/736x\//, "/originals/");
-        if (seen.has(highRes)) continue;
-        seen.add(highRes);
-
-        allImages.push({
-          url: highRes,
-          thumbUrl: url,
-          title: `${memberName} - Pinterest`,
-          type: "image",
-          date: new Date().toISOString().slice(0, 10),
-        });
-      }
-    } catch (e) {
-      console.warn("Pinterest scrape failed:", e.message);
-    }
-
-    return allImages.slice(0, 30);
+    return allImages;
   },
 
   // ============================
@@ -293,12 +255,8 @@ const Scraper = {
   async _searchYoutube(query, apiKey, maxResults) {
     try {
       const params = new URLSearchParams({
-        part: "snippet",
-        q: query,
-        type: "video",
-        maxResults: String(maxResults),
-        order: "relevance",
-        key: apiKey,
+        part: "snippet", q: query, type: "video",
+        maxResults: String(maxResults), order: "relevance", key: apiKey,
       });
       const res = await fetch(
         `https://www.googleapis.com/youtube/v3/search?${params}`,
@@ -319,57 +277,19 @@ const Scraper = {
   },
 
   // ============================
-  // ユーティリティ
+  // 画像ダウンロード（blob経由）
   // ============================
-
-  /** CORSプロキシのフォールバック付きfetch */
-  async _fetchWithProxy(url) {
-    const settings = Store.getSettings();
-    const proxies = [
-      settings.corsProxy,
-      ...CORS_PROXIES,
-    ].filter(Boolean);
-
-    // 重複排除
-    const uniqueProxies = [...new Set(proxies)];
-
-    for (const proxy of uniqueProxies) {
-      try {
-        const fetchUrl = `${proxy}${encodeURIComponent(url)}`;
-        const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(12000) });
-        if (res.ok) {
-          return await res.text();
-        }
-      } catch (e) {
-        // 次のプロキシを試行
-      }
-    }
-
-    // プロキシなしで直接試行
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (res.ok) return await res.text();
-    } catch (e) {
-      // CORS blocked - expected
-    }
-
-    return null;
-  },
-
-  /** 画像をblob経由でダウンロード */
   async downloadImage(url) {
     const settings = Store.getSettings();
     const proxies = [settings.corsProxy, ...CORS_PROXIES].filter(Boolean);
     const uniqueProxies = [...new Set(proxies)];
 
-    // まず直接取得を試す
+    // 直接取得
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        if (contentType.startsWith("image/")) {
-          return await res.blob();
-        }
+        const ct = res.headers.get("content-type") || "";
+        if (ct.startsWith("image/")) return await res.blob();
       }
     } catch (e) { /* CORS */ }
 
@@ -380,94 +300,11 @@ const Scraper = {
         const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(12000) });
         if (res.ok) {
           const blob = await res.blob();
-          if (blob.size > 1000) return blob; // 小さすぎるのはエラーページ
+          if (blob.size > 1000) return blob;
         }
       } catch (e) { /* next */ }
     }
-
     return null;
-  },
-
-  /** HTMLから画像URLを抽出 */
-  _extractImageUrls(html, baseUrl) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-    const urls = new Set();
-
-    // 記事内画像
-    const selectors = [
-      "article img", ".blog-entry img", ".entry img", ".post img",
-      ".article-body img", ".content img", ".main img",
-      // まとめサイト系
-      ".entry-content img", ".post-content img", ".article-content img",
-    ];
-    let imgs = [];
-    for (const sel of selectors) {
-      imgs.push(...doc.querySelectorAll(sel));
-    }
-    if (imgs.length === 0) {
-      imgs = [...doc.querySelectorAll("img")];
-    }
-
-    for (const img of imgs) {
-      const src = img.getAttribute("data-original")
-        || img.getAttribute("data-src")
-        || img.getAttribute("data-lazy-src")
-        || img.getAttribute("src")
-        || "";
-      if (!src || src.startsWith("data:")) continue;
-
-      try {
-        const fullUrl = new URL(src, baseUrl).href;
-        if (this._isValidImage(fullUrl)) {
-          urls.add(fullUrl);
-        }
-      } catch (e) { /* invalid URL */ }
-    }
-
-    // og:image
-    for (const meta of doc.querySelectorAll('meta[property="og:image"]')) {
-      const content = meta.getAttribute("content") || "";
-      if (content) {
-        try { urls.add(new URL(content, baseUrl).href); } catch (e) { /* */ }
-      }
-    }
-
-    // リンク先画像 (href が画像URLの場合)
-    for (const a of doc.querySelectorAll("a[href]")) {
-      const href = a.getAttribute("href") || "";
-      if (this._isValidImage(href)) {
-        try { urls.add(new URL(href, baseUrl).href); } catch (e) { /* */ }
-      }
-    }
-
-    return [...urls];
-  },
-
-  _isValidImage(url) {
-    if (!url) return false;
-    const lower = url.toLowerCase();
-    const validExts = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-    const hasExt = validExts.some(ext => lower.includes(ext));
-
-    const excludes = [
-      "icon", "logo", "sprite", "favicon", "emoji",
-      "pixel", "spacer", "button", "arrow", "ad_", "1x1",
-      "tracking", "badge", "avatar_s", "profile_s",
-      "banner_ad", "adsense", "doubleclick",
-    ];
-    const excluded = excludes.some(p => lower.includes(p));
-
-    return hasExt && !excluded;
-  },
-
-  _dedup(items) {
-    const seen = new Set();
-    return items.filter(item => {
-      if (seen.has(item.url)) return false;
-      seen.add(item.url);
-      return true;
-    });
   },
 
   _sleep(ms) {
